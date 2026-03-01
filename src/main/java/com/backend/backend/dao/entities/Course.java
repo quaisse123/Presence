@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import java.util.ArrayList;
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "courses")
@@ -24,6 +25,10 @@ public class Course {
     @Column(nullable = false, unique = true)
     private String code;
 
+    @Column(nullable = false)
+    private String filiere ;
+
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<Session> sessions = new ArrayList<>();
 }

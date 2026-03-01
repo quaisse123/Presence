@@ -28,11 +28,15 @@ public class Session {
     @Column(nullable = false, unique = true)
     private String qrCodeToken;
 
+    private String salle ;
+
     private Double latitude;
 
     private Double longitude;
 
     private Double radiusInMeters;
+
+    private String description;
 
     @ManyToOne
     @JoinColumn(name = "course_id", nullable = false)
@@ -41,6 +45,10 @@ public class Session {
     @ManyToOne
     @JoinColumn(name = "professor_id", nullable = false)
     private User professor;
+
+    @ManyToOne
+    @JoinColumn(name = "group_id", nullable = false)
+    private Group group;
 
     @OneToMany(mappedBy = "session", cascade = CascadeType.ALL)
     private List<Attendance> attendances = new ArrayList<>();

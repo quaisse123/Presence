@@ -9,6 +9,7 @@ public class SessionDTO {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private String qrCodeToken;
+    private String salle;
     private Double latitude;
     private Double longitude;
     private Double radiusInMeters;

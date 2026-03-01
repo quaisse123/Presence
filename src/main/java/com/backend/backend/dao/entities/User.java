@@ -30,6 +30,10 @@ public class User {
 
     private String biometricToken;
 
+    @ManyToOne
+    @JoinColumn(name = "group_id")
+    private Group group;
+
     @OneToMany(mappedBy = "professor", cascade = CascadeType.ALL)
     private List<Session> sessions = new ArrayList<>();
 
