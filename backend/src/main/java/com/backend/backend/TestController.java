@@ -56,8 +56,8 @@ public class TestController {
         return result;
     }
 
-    private String escape(String s) {
-        if (s == null) return "";
-        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
-    }
+    // private String escape(String s) {
+    //     if (s == null) return "";
+    //     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
+    // }
 }
