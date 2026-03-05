@@ -1,91 +1,94 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/Api/sessionsApi.dart';
+import 'package:frontend/pages/sessionDetails.dart';
+import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 
 // ─────────────────────────────────────────────
-//  DATA MODELS  (will be replaced by real API calls)
+//  DATA MODELS
 // ─────────────────────────────────────────────
 
 enum SessionStatus { active, upcoming, completed }
 
-class MockSession {
-  final String id;
+extension SessionStatusParsing on SessionStatus {
+  static SessionStatus fromString(String s) {
+    switch (s.toUpperCase()) {
+      case 'ACTIVE':
+        return SessionStatus.active;
+      case 'UPCOMING':
+        return SessionStatus.upcoming;
+      case 'COMPLETED':
+      default:
+        return SessionStatus.completed;
+    }
+  }
+}
+
+class Session {
+  final int id;
+  final int courseId;
   final String courseTitle;
   final String courseCode;
-  final String startTime; // human-readable for now
-  final String endTime;
-  final String location;
-  final int attendeeCount;
+  final DateTime startTime;
+  final DateTime endTime;
+  final String salle;
+  final int attendance;
   final int totalStudents;
   final SessionStatus status;
-  final String rawDate; // for the date chip
+  final String? description;
 
-  const MockSession({
+  const Session({
     required this.id,
+    required this.courseId,
     required this.courseTitle,
     required this.courseCode,
     required this.startTime,
     required this.endTime,
-    required this.location,
-    required this.attendeeCount,
+    required this.salle,
+    required this.attendance,
     required this.totalStudents,
     required this.status,
-    required this.rawDate,
+    this.description,
   });
+
+  factory Session.fromJson(Map<String, dynamic> json) {
+    return Session(
+      id: json['id'] as int,
+      courseId: json['courseId'] as int,
+      courseTitle: json['courseTitle'] as String,
+      courseCode: json['courseCode'] as String,
+      startTime: DateTime.parse(json['startTime'] as String),
+      endTime: DateTime.parse(json['endTime'] as String),
+      salle: json['salle'] as String,
+      attendance: json['attendance'] as int,
+      totalStudents: json['totalStudents'] as int,
+      status: SessionStatusParsing.fromString(json['sessionStatus'] as String),
+      description: json['description'] as String?,
+    );
+  }
 }
 
 // ─────────────────────────────────────────────
-//  SIMULATED DATA
+//  DATE / TIME HELPERS  (shared)
 // ─────────────────────────────────────────────
 
-final List<MockSession> _mockSessions = [
-  MockSession(
-    id: '1',
-    courseTitle: 'Software Engineering',
-    courseCode: 'SE101',
-    startTime: '10:00 AM',
-    endTime: '11:30 AM',
-    location: 'Room 204',
-    attendeeCount: 45,
-    totalStudents: 60,
-    status: SessionStatus.active,
-    rawDate: 'Today',
-  ),
-  MockSession(
-    id: '2',
-    courseTitle: 'Database Systems',
-    courseCode: 'DB202',
-    startTime: '2:00 PM',
-    endTime: '3:30 PM',
-    location: 'Room 301',
-    attendeeCount: 0,
-    totalStudents: 55,
-    status: SessionStatus.upcoming,
-    rawDate: 'Today',
-  ),
-  MockSession(
-    id: '3',
-    courseTitle: 'Algorithms',
-    courseCode: 'ALG303',
-    startTime: '9:00 AM',
-    endTime: '10:30 AM',
-    location: 'Room 105',
-    attendeeCount: 58,
-    totalStudents: 60,
-    status: SessionStatus.completed,
-    rawDate: 'Yesterday',
-  ),
-  MockSession(
-    id: '4',
-    courseTitle: 'Mobile Development',
-    courseCode: 'MOB401',
-    startTime: '4:00 PM',
-    endTime: '5:30 PM',
-    location: 'Room 210',
-    attendeeCount: 42,
-    totalStudents: 50,
-    status: SessionStatus.completed,
-    rawDate: 'Feb 26',
-  ),
-];
+String humanReadableDate(DateTime date) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final target = DateTime(date.year, date.month, date.day);
+
+  if (target == today) return 'Today';
+  if (target == today.subtract(const Duration(days: 1))) return 'Yesterday';
+  if (target == today.add(const Duration(days: 1))) return 'Tomorrow';
+  return '${date.day}/${date.month}/${date.year}';
+}
+
+String formatTime(DateTime dt) {
+  final hour = dt.hour;
+  final minute = dt.minute.toString().padLeft(2, '0');
+  final period = hour >= 12 ? 'PM' : 'AM';
+  final displayHour = hour % 12 == 0 ? 12 : hour % 12;
+  return '$displayHour:$minute $period';
+}
 
 // ─────────────────────────────────────────────
 //  THEME CONSTANTS
@@ -129,25 +132,54 @@ class ProfDashPage extends StatefulWidget {
 }
 
 class _ProfDashPageState extends State<ProfDashPage> {
-  // Local copy so we can delete items without touching the const list
-  late List<MockSession> _sessions;
+  List<Session> _sessions = [];
+  bool _isLoading = true;
+  String? _error;
 
   // For the future search/filter bar (collapsed by default)
   bool _showFilterBar = false;
   String _filterStatus = 'All'; // 'All' | 'Active' | 'Upcoming' | 'Completed'
 
-  // Pull-to-refresh state
-  bool _isRefreshing = false;
+  // Pagination
+  int _currentPage = 0;
+  int _totalPages = 1;
+
+  // Navigation tab index
+  int _currentIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _sessions = List.from(_mockSessions);
+    _loadSessions();
+  }
+
+  Future<void> _loadSessions() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final data = await fetchSessions(page: _currentPage, size: 4);
+      setState(() {
+        _sessions = (data['content'] as List)
+            .map((e) => Session.fromJson(e as Map<String, dynamic>))
+            .toList();
+        // _currentPage = data['number']; // ou 'page' selon ton backend
+        _totalPages = data['totalPages'];
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+      debugPrint('Error fetching sessions: $e');
+    }
   }
 
   // ── Helpers ──────────────────────────────────
 
-  List<MockSession> get _filteredSessions {
+  List<Session> get _filteredSessions {
     if (_filterStatus == 'All') return _sessions;
     return _sessions.where((s) {
       switch (_filterStatus) {
@@ -164,16 +196,10 @@ class _ProfDashPageState extends State<ProfDashPage> {
   }
 
   Future<void> _onRefresh() async {
-    setState(() => _isRefreshing = true);
-    // TODO: replace with real API call
-    await Future.delayed(const Duration(seconds: 1));
-    setState(() {
-      _sessions = List.from(_mockSessions); // reset simulated data
-      _isRefreshing = false;
-    });
+    await _loadSessions();
   }
 
-  void _deleteSession(MockSession session) {
+  void _deleteSession(Session session) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -191,7 +217,7 @@ class _ProfDashPageState extends State<ProfDashPage> {
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
               Navigator.pop(context);
-              setState(() => _sessions.remove(session));
+              setState(() => _sessions.removeWhere((s) => s.id == session.id));
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('${session.courseTitle} session deleted.'),
@@ -208,7 +234,7 @@ class _ProfDashPageState extends State<ProfDashPage> {
     );
   }
 
-  void _showQrCode(MockSession session) {
+  void _showQrCode(Session session) {
     // TODO: fetch real QR token and render qr_flutter widget
     showModalBottomSheet(
       context: context,
@@ -239,7 +265,7 @@ class _ProfDashPageState extends State<ProfDashPage> {
             ),
             const SizedBox(height: 4),
             Text(
-              '${session.rawDate} · ${session.startTime} – ${session.endTime}',
+              '${humanReadableDate(session.startTime)} · ${formatTime(session.startTime)} – ${formatTime(session.endTime)}',
               style: const TextStyle(color: _AppColors.textSecondary),
             ),
             const SizedBox(height: 28),
@@ -262,7 +288,7 @@ class _ProfDashPageState extends State<ProfDashPage> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Token: mock-token-${session.id}',
+              'Session ID: ${session.id}',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.grey[500],
@@ -277,7 +303,7 @@ class _ProfDashPageState extends State<ProfDashPage> {
     debugPrint('SHOW QR for session id=${session.id}');
   }
 
-  void _viewAttendance(MockSession session) {
+  void _viewAttendance(Session session) {
     // TODO: navigate to AttendancePage with sessionId
     debugPrint('VIEW attendance for session id=${session.id}');
     ScaffoldMessenger.of(context).showSnackBar(
@@ -317,6 +343,17 @@ class _ProfDashPageState extends State<ProfDashPage> {
     debugPrint('OPEN notifications');
   }
 
+  String getHumanReadableDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final target = DateTime(date.year, date.month, date.day);
+
+    if (target == today) return 'Today';
+    if (target == today.subtract(const Duration(days: 1))) return 'Yesterday';
+    // Ajoute d’autres règles si besoin
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
   // ── Build ─────────────────────────────────────
 
   @override
@@ -324,11 +361,11 @@ class _ProfDashPageState extends State<ProfDashPage> {
     return Scaffold(
       backgroundColor: _AppColors.surface,
       // ── App Bar ────────────────────────────────
-      appBar: _buildAppBar(context),
+      // appBar: _buildAppBar(context),
       // ── Body ───────────────────────────────────
       body: Column(
         children: [
-          // Filter / search bar (collapsible – space reserved for future)
+          // Filter / search bar (collapsible)
           _FilterBar(
             visible: _showFilterBar,
             selectedStatus: _filterStatus,
@@ -336,24 +373,100 @@ class _ProfDashPageState extends State<ProfDashPage> {
           ),
           // Session list
           Expanded(
-            child: RefreshIndicator(
-              onRefresh: _onRefresh,
-              color: _AppColors.primary,
-              child: _filteredSessions.isEmpty
-                  ? _EmptyState(onCreateTap: _createSession)
-                  : ListView.builder(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                      itemCount: _filteredSessions.length,
-                      itemBuilder: (_, i) => _SessionCard(
-                        session: _filteredSessions[i],
-                        onQrTap: () => _showQrCode(_filteredSessions[i]),
-                        onAttendanceTap: () =>
-                            _viewAttendance(_filteredSessions[i]),
-                        onDeleteTap: () => _deleteSession(_filteredSessions[i]),
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: _AppColors.primary),
+                  )
+                : _error != null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.cloud_off_rounded,
+                            size: 52,
+                            color: _AppColors.textSecondary,
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Failed to load sessions',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: _AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _error!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: _AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          FilledButton.icon(
+                            onPressed: _loadSessions,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: _AppColors.primary,
+                            ),
+                            icon: const Icon(Icons.refresh_rounded),
+                            label: const Text('Retry'),
+                          ),
+                        ],
                       ),
                     ),
-            ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: _onRefresh,
+                    color: _AppColors.primary,
+                    child: _filteredSessions.isEmpty
+                        ? _EmptyState(onCreateTap: _createSession)
+                        : ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+                            itemCount: _filteredSessions.length + 1,
+                            itemBuilder: (_, i) {
+                              if (i == _filteredSessions.length) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: _PaginationBar(
+                                    currentPage: _currentPage,
+                                    totalPages: _totalPages,
+                                    onPrevious: () {
+                                      if (_currentPage > 0) {
+                                        setState(() {
+                                          _currentPage--;
+                                        });
+                                        _loadSessions();
+                                      }
+                                    },
+                                    onNext: () {
+                                      if (_currentPage < _totalPages - 1) {
+                                        setState(() {
+                                          _currentPage++;
+                                        });
+                                        _loadSessions();
+                                      }
+                                    },
+                                  ),
+                                );
+                              }
+                              return _SessionCard(
+                                session: _filteredSessions[i],
+                                onQrTap: () =>
+                                    _showQrCode(_filteredSessions[i]),
+                                onAttendanceTap: () =>
+                                    _viewAttendance(_filteredSessions[i]),
+                                onDeleteTap: () =>
+                                    _deleteSession(_filteredSessions[i]),
+                              );
+                            },
+                          ),
+                  ),
           ),
         ],
       ),
@@ -368,7 +481,6 @@ class _ProfDashPageState extends State<ProfDashPage> {
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
-      // TODO: add BottomNavigationBar here when Student/History tabs are added
     );
   }
 
@@ -555,7 +667,7 @@ class _FilterBar extends StatelessWidget {
 // ─────────────────────────────────────────────
 
 class _SessionCard extends StatefulWidget {
-  final MockSession session;
+  final Session session;
   final VoidCallback onQrTap;
   final VoidCallback onAttendanceTap;
   final VoidCallback onDeleteTap;
@@ -633,11 +745,19 @@ class _SessionCardState extends State<_SessionCard> {
   Widget build(BuildContext context) {
     final session = widget.session;
     final attendanceRatio = session.totalStudents > 0
-        ? session.attendeeCount / session.totalStudents
+        ? session.attendance / session.totalStudents
         : 0.0;
 
     return GestureDetector(
       // Long-press hint for future edit action
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SessionDetailsPage(sessionId: session.id),
+          ),
+        );
+      },
       onLongPress: () {
         // TODO: show edit option
         debugPrint('LONG-PRESS edit session id=${session.id}');
@@ -745,15 +865,16 @@ class _SessionCardState extends State<_SessionCard> {
                 children: [
                   _InfoChip(
                     icon: Icons.calendar_today_rounded,
-                    label: session.rawDate,
+                    label: humanReadableDate(session.startTime),
                   ),
                   _InfoChip(
                     icon: Icons.schedule_rounded,
-                    label: '${session.startTime} – ${session.endTime}',
+                    label:
+                        '${formatTime(session.startTime)} – ${formatTime(session.endTime)}',
                   ),
                   _InfoChip(
                     icon: Icons.location_on_outlined,
-                    label: session.location,
+                    label: session.salle,
                   ),
                 ],
               ),
@@ -770,7 +891,7 @@ class _SessionCardState extends State<_SessionCard> {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    '${session.attendeeCount}/${session.totalStudents} present',
+                    '${session.attendance}/${session.totalStudents} present',
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -1023,6 +1144,102 @@ class _EmptyState extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  PAGINATION BAR WIDGET
+// ─────────────────────────────────────────────
+
+class _PaginationBar extends StatelessWidget {
+  final int currentPage;
+  final int totalPages;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+
+  const _PaginationBar({
+    required this.currentPage,
+    required this.totalPages,
+    required this.onPrevious,
+    required this.onNext,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isFirst = currentPage == 0;
+    final isLast = currentPage >= totalPages - 1;
+
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Previous button
+          _PaginationButton(
+            icon: Icons.chevron_left_rounded,
+            onTap: isFirst ? null : onPrevious,
+            enabled: !isFirst,
+          ),
+          const SizedBox(width: 16),
+          // Page indicator
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            decoration: BoxDecoration(
+              color: _AppColors.primaryLight,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '${currentPage + 1} of $totalPages',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _AppColors.primary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Next button
+          _PaginationButton(
+            icon: Icons.chevron_right_rounded,
+            onTap: isLast ? null : onNext,
+            enabled: !isLast,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaginationButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onTap;
+  final bool enabled;
+
+  const _PaginationButton({
+    required this.icon,
+    required this.onTap,
+    required this.enabled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: enabled ? _AppColors.primary : _AppColors.divider,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(
+            icon,
+            size: 20,
+            color: enabled ? Colors.white : _AppColors.textSecondary,
+          ),
         ),
       ),
     );

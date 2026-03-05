@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/Api/MainScreen.dart';
 import 'package:frontend/pages/home.dart';
 import 'package:frontend/pages/profDash.dart';
 
@@ -51,7 +52,7 @@ class _LoginPageState extends State<LoginPage> {
       setState(() => _isLoading = false);
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const ProfDashPage()),
+        MaterialPageRoute(builder: (context) => const MainScreen()),
       );
     }
   }
@@ -60,7 +61,7 @@ class _LoginPageState extends State<LoginPage> {
     // Google Sign-In logic
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const HomePage()),
+      MaterialPageRoute(builder: (context) => const MainScreen()),
     );
   }
 

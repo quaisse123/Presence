@@ -2,7 +2,12 @@ package com.backend.backend.service;
 
 import com.backend.backend.dao.entities.Course;
 import com.backend.backend.dao.repositories.CourseRepository;
+import com.backend.backend.dto.course.CourseDTO;
+import com.backend.backend.dto.course.CourseSessionDTO;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import java.util.List;
 
@@ -11,6 +16,9 @@ public class CourseManager implements CourseService {
 
     @Autowired
     private CourseRepository courseRepository;
+
+    @Autowired
+    private ModelMapper modelMapper;
 
     @Override
     public Course createCourse(Course course) {
@@ -24,7 +32,27 @@ public class CourseManager implements CourseService {
 
     @Override
     public List<Course> getAllCourses() {
-        return null;
+        return courseRepository.findAll();
+    }
+
+    public Page<CourseDTO> getAllCourseSummaries(int page, int size) {
+        Page<Course> courses = courseRepository.findAll(PageRequest.of(page, size));
+        return courses.map(c -> {
+            CourseDTO dto = modelMapper.map(c, CourseDTO.class);
+            if (c.getSessions() != null) {
+                dto.setSessions(c.getSessions().stream()
+                        .map(s -> {
+                            CourseSessionDTO sDto = new CourseSessionDTO();
+                            sDto.setDate(s.getStartTime() != null ? s.getStartTime().toLocalDate() : null);
+                            sDto.setStartTime(s.getStartTime());
+                            sDto.setEndTime(s.getEndTime());
+                            sDto.setSalle(s.getSalle());
+                            return sDto;
+                        })
+                        .toList());
+            }
+            return dto;
+        });
     }
 
     @Override

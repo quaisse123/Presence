@@ -22,11 +22,11 @@ class MyApp extends StatelessWidget {
       ),
       // TODO: restore to LoginPage() once auth flow is wired up
       // home: LoginPage(),
-      home: const ProfDashPage(),
-      routes: {
-        '/login': (_) => LoginPage(),
-        '/profDash': (_) => const ProfDashPage(),
-      },
+      home: const LoginPage(),
+      // routes: {
+      //   '/login': (_) => LoginPage(),
+      //   '/profDash': (_) => const ProfDashPage(),
+      // },
     );
   }
 }
