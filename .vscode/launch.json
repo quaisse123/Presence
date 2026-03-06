@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "type": "java",
+            "name": "BackendApplication",
+            "request": "launch",
+            "mainClass": "com.backend.backend.BackendApplication",
+            "projectName": "backend"
+        },
+        {
             "name": "frontend",
             "cwd": "frontend",
             "request": "launch",

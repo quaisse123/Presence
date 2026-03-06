@@ -8,7 +8,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 @SpringBootApplication
 public class BackendApplication {
@@ -26,257 +28,326 @@ public class BackendApplication {
 			GroupRepository groupRepo
 	) {
 		return args -> {
-			// ── Injection unique : on ne fait rien si la DB contient déjà des données ──
 			if (userRepo.count() > 0) {
 				System.out.println("[DataSeed] Base déjà initialisée, injection ignorée.");
 				return;
 			}
 
-			System.out.println("[DataSeed] Base vide détectée, injection des données de test...");
+			System.out.println("[DataSeed] Base vide — injection en cours...");
 
-			// ── GROUPES ───────────────────────────────────────────────────────────────
-			Group group1A = new Group();
-			group1A.setLevel("API-1");
-			group1A.setSection("A");
-			group1A.setFiliere("IAGI");
-			group1A.setTotalStudents(0);
-			groupRepo.save(group1A);
+			Random rand = new Random(42); // seed fixe → résultats reproductibles
 
-			Group group1B = new Group();
-			group1B.setLevel("API-1");
-			group1B.setSection("B");
-			group1B.setFiliere("IAGI");
-			group1B.setTotalStudents(0);
-			groupRepo.save(group1B);
+			// ══════════════════════════════════════════════════════════
+			//  GROUPES
+			//  CI  : level="CI-1/2/3", section=null,  filiere="IAGI"|"GSI"|...
+			//  API : level="API-1/2",  section="A".."E", filiere=null
+			// ══════════════════════════════════════════════════════════
+			// {level, section, filiere, nbStudents}
+			Object[][] groupDefs = {
+				{"API-1", "A", null,    55},
+				{"API-1", "B", null,    53},
+				{"API-1", "C", null,    57},
+				{"API-1", "D", null,    52},
+				{"API-1", "E", null,    56},
+				{"API-2", "A", null,    58},
+				{"API-2", "B", null,    51},
+				{"API-2", "C", null,    54},
+				{"CI-1",  null, "IAGI", 60},
+				{"CI-2",  null, "GSI",  50},
+			};
 
-			Group group2A = new Group();
-			group2A.setLevel("API-2");
-			group2A.setSection("A");
-			group2A.setFiliere("GSI");
-			group2A.setTotalStudents(0);
-			groupRepo.save(group2A);
+			Group[] groups = new Group[groupDefs.length];
+			for (int i = 0; i < groupDefs.length; i++) {
+				Group g = new Group();
+				g.setLevel((String) groupDefs[i][0]);
+				g.setSection((String) groupDefs[i][1]);
+				g.setFiliere((String) groupDefs[i][2]);
+				g.setTotalStudents(0);
+				groups[i] = groupRepo.save(g);
+			}
 
-			// Préparatoire intégrée : sections A..E
-			Group groupPrepaA = new Group();
-			groupPrepaA.setLevel("PREPA");
-			groupPrepaA.setSection("A");
-			groupPrepaA.setFiliere("Prépa");
-			groupPrepaA.setTotalStudents(0);
-			groupRepo.save(groupPrepaA);
-
-			Group groupPrepaB = new Group();
-			groupPrepaB.setLevel("PREPA");
-			groupPrepaB.setSection("B");
-			groupPrepaB.setFiliere("Prépa");
-			groupPrepaB.setTotalStudents(0);
-			groupRepo.save(groupPrepaB);
-
-			Group groupPrepaC = new Group();
-			groupPrepaC.setLevel("PREPA");
-			groupPrepaC.setSection("C");
-			groupPrepaC.setFiliere("Prépa");
-			groupPrepaC.setTotalStudents(0);
-			groupRepo.save(groupPrepaC);
-
-			Group groupPrepaD = new Group();
-			groupPrepaD.setLevel("PREPA");
-			groupPrepaD.setSection("D");
-			groupPrepaD.setFiliere("Prépa");
-			groupPrepaD.setTotalStudents(0);
-			groupRepo.save(groupPrepaD);
-
-			Group groupPrepaE = new Group();
-			groupPrepaE.setLevel("PREPA");
-			groupPrepaE.setSection("E");
-			groupPrepaE.setFiliere("Prépa");
-			groupPrepaE.setTotalStudents(0);
-			groupRepo.save(groupPrepaE);
-
-			// ── ADMIN ─────────────────────────────────────────────────────────────────
+			// ══════════════════════════════════════════════════════════
+			//  ADMIN
+			// ══════════════════════════════════════════════════════════
 			User admin = new User();
 			admin.setEmail("admin@presence.fr");
 			admin.setPassword("admin1234");
 			admin.setRole(Role.ADMIN);
-			admin.setBiometricToken(null);
 			userRepo.save(admin);
 
-			// ── PROFESSEURS ───────────────────────────────────────────────────────────
-			User prof1 = new User(); prof1.setEmail("dupont.jean@presence.fr");
-			prof1.setPassword("prof1234"); prof1.setRole(Role.PROFESSOR);
-			prof1.setBiometricToken("bio-prof-001"); userRepo.save(prof1);
-
-			User prof2 = new User(); prof2.setEmail("martin.claire@presence.fr");
-			prof2.setPassword("prof1234"); prof2.setRole(Role.PROFESSOR);
-			prof2.setBiometricToken("bio-prof-002"); userRepo.save(prof2);
-
-			User prof3 = new User(); prof3.setEmail("leroy.paul@presence.fr");
-			prof3.setPassword("prof1234"); prof3.setRole(Role.PROFESSOR);
-			prof3.setBiometricToken("bio-prof-003"); userRepo.save(prof3);
-
-			// ── ÉTUDIANTS ─────────────────────────────────────────────────────────────
-			String[][] studentData = {
-				{"alice.morel@etu.fr",   "bio-stu-001"},
-				{"bob.petit@etu.fr",     "bio-stu-002"},
-				{"camille.roy@etu.fr",   "bio-stu-003"},
-				{"damien.garcia@etu.fr", "bio-stu-004"},
-				{"emma.blanc@etu.fr",    "bio-stu-005"},
-				{"florian.henry@etu.fr", "bio-stu-006"},
-				{"grace.simon@etu.fr",   "bio-stu-007"},
-				{"hugo.richard@etu.fr",  "bio-stu-008"},
-				{"ines.david@etu.fr",    "bio-stu-009"},
-				{"julien.thomas@etu.fr", "bio-stu-010"}
+			// ══════════════════════════════════════════════════════════
+			//  PROFESSEURS
+			// ══════════════════════════════════════════════════════════
+			String[][] profDefs = {
+				{"dupont.jean@presence.fr",   "bio-prof-001"},
+				{"martin.claire@presence.fr", "bio-prof-002"},
+				{"leroy.paul@presence.fr",    "bio-prof-003"},
+				{"benali.sara@presence.fr",   "bio-prof-004"},
+				{"roux.marc@presence.fr",     "bio-prof-005"},
+				{"faure.camille@presence.fr", "bio-prof-006"},
 			};
-			User[] students = new User[studentData.length];
-			// Répartition : 4 étudiants dans group1A, 3 dans group1B, 3 dans group2A
-			Group[] studentGroups = {group1A, group1A, group1A, group1A, group1B, group1B, group1B, group2A, group2A, group2A};
-			for (int i = 0; i < studentData.length; i++) {
-				User s = new User();
-				s.setEmail(studentData[i][0]);
-				s.setPassword("etudiant1234");
-				s.setRole(Role.STUDENT);
-				s.setBiometricToken(studentData[i][1]);
-				s.setGroup(studentGroups[i]);
-				students[i] = userRepo.save(s);
-				studentGroups[i].enrollStudent();
+			User[] profs = new User[profDefs.length];
+			for (int i = 0; i < profDefs.length; i++) {
+				User p = new User();
+				p.setEmail(profDefs[i][0]);
+				p.setPassword("prof1234");
+				p.setRole(Role.PROFESSOR);
+				p.setBiometricToken(profDefs[i][1]);
+				profs[i] = userRepo.save(p);
 			}
-			// Sauvegarde des totaux mis à jour
-			groupRepo.save(group1A);
-			groupRepo.save(group1B);
-			groupRepo.save(group2A);
 
-			// ── COURS ─────────────────────────────────────────────────────────────────
-			Course mathCourse = new Course(); 
-			mathCourse.setTitle("Mathématiques Appliquées");
-			mathCourse.setCode("MATH-301");
-			mathCourse.setFiliere("IAGI");
-			courseRepo.save(mathCourse);
-
-			Course infoCourse = new Course(); 
-			infoCourse.setTitle("Informatique Distribuée");
-			infoCourse.setCode("INFO-402");
-			infoCourse.setFiliere("GSI");
-			courseRepo.save(infoCourse);
-
-			Course physicsCourse = new Course(); 
-			physicsCourse.setTitle("Physique Quantique");
-			physicsCourse.setCode("PHYS-201");
-			physicsCourse.setFiliere("IAGI");
-			courseRepo.save(physicsCourse);
-
-			Course anglaisCourse = new Course(); 
-			anglaisCourse.setTitle("Anglais Professionnel");
-			anglaisCourse.setCode("ANGL-101");
-			anglaisCourse.setFiliere("Prépa");
-			courseRepo.save(anglaisCourse);
-
-			// ── SESSIONS ──────────────────────────────────────────────────────────────
-			// Passées (pour tester les présences)
-			Session s1 = new Session();
-			s1.setCourse(mathCourse); s1.setProfessor(prof1); s1.setGroup(group1A);
-			s1.setStartTime(LocalDateTime.now().minusDays(7).withHour(8).withMinute(0));
-			s1.setEndTime(LocalDateTime.now().minusDays(7).withHour(10).withMinute(0));
-			s1.setQrCodeToken("QR-MATH-001"); s1.setSalle("A101");
-			s1.setLatitude(48.8566); s1.setLongitude(2.3522); s1.setRadiusInMeters(50.0);
-			sessionRepo.save(s1);
-
-			Session s2 = new Session();
-			s2.setCourse(mathCourse); s2.setProfessor(prof1); s2.setGroup(group1A);
-			s2.setStartTime(LocalDateTime.now().minusDays(5).withHour(8).withMinute(0));
-			s2.setEndTime(LocalDateTime.now().minusDays(5).withHour(10).withMinute(0));
-			s2.setQrCodeToken("QR-MATH-002"); s2.setSalle("A101");
-			s2.setLatitude(48.8566); s2.setLongitude(2.3522); s2.setRadiusInMeters(50.0);
-			sessionRepo.save(s2);
-
-			Session s3 = new Session();
-			s3.setCourse(infoCourse); s3.setProfessor(prof2); s3.setGroup(group2A);
-			s3.setStartTime(LocalDateTime.now().minusDays(6).withHour(14).withMinute(0));
-			s3.setEndTime(LocalDateTime.now().minusDays(6).withHour(16).withMinute(0));
-			s3.setQrCodeToken("QR-INFO-001"); s3.setSalle("B205");
-			s3.setLatitude(48.8570); s3.setLongitude(2.3530); s3.setRadiusInMeters(50.0);
-			sessionRepo.save(s3);
-
-			Session s4 = new Session();
-			s4.setCourse(infoCourse); s4.setProfessor(prof2); s4.setGroup(group2A);
-			s4.setStartTime(LocalDateTime.now().minusDays(4).withHour(14).withMinute(0));
-			s4.setEndTime(LocalDateTime.now().minusDays(4).withHour(16).withMinute(0));
-			s4.setQrCodeToken("QR-INFO-002"); s4.setSalle("B205");
-			s4.setLatitude(48.8570); s4.setLongitude(2.3530); s4.setRadiusInMeters(50.0);
-			sessionRepo.save(s4);
-
-			Session s5 = new Session();
-			s5.setCourse(physicsCourse); s5.setProfessor(prof3); s5.setGroup(group1B);
-			s5.setStartTime(LocalDateTime.now().minusDays(3).withHour(10).withMinute(0));
-			s5.setEndTime(LocalDateTime.now().minusDays(3).withHour(12).withMinute(0));
-			s5.setQrCodeToken("QR-PHYS-001"); s5.setSalle("C302");
-			s5.setLatitude(48.8580); s5.setLongitude(2.3540); s5.setRadiusInMeters(50.0);
-			sessionRepo.save(s5);
-
-			Session s6 = new Session();
-			s6.setCourse(anglaisCourse); s6.setProfessor(prof1); s6.setGroup(groupPrepaA);
-			s6.setStartTime(LocalDateTime.now().minusDays(2).withHour(16).withMinute(0));
-			s6.setEndTime(LocalDateTime.now().minusDays(2).withHour(18).withMinute(0));
-			s6.setQrCodeToken("QR-ANGL-001"); s6.setSalle("D104");
-			s6.setLatitude(48.8590); s6.setLongitude(2.3550); s6.setRadiusInMeters(50.0);
-			sessionRepo.save(s6);
-
-			// Session active (aujourd'hui)
-			Session s7 = new Session();
-			s7.setCourse(infoCourse); s7.setProfessor(prof2); s7.setGroup(group2A);
-			s7.setStartTime(LocalDateTime.now().minusHours(1));
-			s7.setEndTime(LocalDateTime.now().plusHours(1));
-			s7.setQrCodeToken("QR-INFO-LIVE"); s7.setSalle("B205");
-			s7.setLatitude(48.8570); s7.setLongitude(2.3530); s7.setRadiusInMeters(50.0);
-			sessionRepo.save(s7);
-
-			// ── PRÉSENCES ─────────────────────────────────────────────────────────────
-			// Statuts variés pour simuler la réalité
-			AttendanceStatus[] statusPattern = {
-				AttendanceStatus.PRESENT, AttendanceStatus.PRESENT, AttendanceStatus.LATE,
-				AttendanceStatus.PRESENT, AttendanceStatus.ABSENT, AttendanceStatus.PRESENT,
-				AttendanceStatus.PRESENT, AttendanceStatus.LATE,   AttendanceStatus.PRESENT,
-				AttendanceStatus.ABSENT
+			// ══════════════════════════════════════════════════════════
+			//  ÉTUDIANTS  (générés par boucle, 50-60 par groupe)
+			// ══════════════════════════════════════════════════════════
+			String[] firstNames = {
+				"Alice","Bob","Camille","Damien","Emma","Florian","Grace","Hugo",
+				"Ines","Julien","Karim","Leila","Marc","Nadia","Omar","Pierre",
+				"Rania","Sami","Tina","Ugo","Vera","Walid","Yasmine","Zakaria",
+				"Amira","Bilal","Clara","Dina","Elias","Fatima"
+			};
+			String[] lastNames = {
+				"Morel","Petit","Roy","Garcia","Blanc","Henry","Simon","Richard",
+				"David","Thomas","Bernard","Dubois","Laurent","Michel","Lefevre",
+				"Martin","Durand","Moreau","Girard","Roux","Vincent","Fournier",
+				"Faure","Rousseau","Guerin","Muller","Leroy","Bonnet","Dupont","Lemaire"
 			};
 
-			List<Session> pastSessions = List.of(s1, s2, s3, s4, s5, s6);
-			for (Session session : pastSessions) {
-				for (int i = 0; i < students.length; i++) {
-					AttendanceStatus status = statusPattern[i % statusPattern.length];
-					if (status == AttendanceStatus.ABSENT) continue; // Absent = pas d'enregistrement scan
+			List<User[]> studentsByGroup = new ArrayList<>();
+			int gIdx = 0;
+			for (int gi = 0; gi < groups.length; gi++) {
+				int size = (int) groupDefs[gi][3];
+				User[] gs = new User[size];
+				for (int si = 0; si < size; si++) {
+					String fn = firstNames[gIdx % firstNames.length];
+					String ln = lastNames[(gIdx * 7 + 3) % lastNames.length];
+					User s = new User();
+					s.setEmail(fn.toLowerCase() + "." + ln.toLowerCase() + (gIdx + 1) + "@etu.fr");
+					s.setPassword("etudiant1234");
+					s.setRole(Role.STUDENT);
+					s.setBiometricToken("bio-stu-" + String.format("%04d", gIdx + 1));
+					s.setGroup(groups[gi]);
+					gs[si] = userRepo.save(s);
+					groups[gi].enrollStudent();
+					gIdx++;
+				}
+				groupRepo.save(groups[gi]);
+				studentsByGroup.add(gs);
+			}
 
+			// ══════════════════════════════════════════════════════════
+			//  COURS  (pas de filière)
+			// ══════════════════════════════════════════════════════════
+			String[][] courseDefs = {
+				{"Mathématiques Appliquées", "MATH-301"},
+				{"Algorithmique Avancée",    "ALGO-201"},
+				{"Informatique Distribuée",  "INFO-402"},
+				{"Réseaux & Sécurité",       "RESX-301"},
+				{"Physique Quantique",       "PHYS-201"},
+				{"Anglais Professionnel",    "ANGL-101"},
+				{"Systèmes d'Exploitation",  "SYS-302"},
+				{"Analyse de Données",       "DATA-401"},
+			};
+			Course[] courses = new Course[courseDefs.length];
+			for (int i = 0; i < courseDefs.length; i++) {
+				Course c = new Course();
+				c.setTitle(courseDefs[i][0]);
+				c.setCode(courseDefs[i][1]);
+				courses[i] = courseRepo.save(c);
+			}
+
+			// ══════════════════════════════════════════════════════════
+			//  SESSIONS + PRÉSENCES
+			//
+			//  Groupes   : 0=API-1A 1=API-1B 2=API-1C 3=API-1D 4=API-1E
+			//               5=API-2A 6=API-2B 7=API-2C 8=CI-1   9=CI-2
+			//  Cours     : 0=MATH 1=ALGO 2=INFO 3=RESX 4=PHYS 5=ANGL 6=SYS 7=DATA
+			//  Profs     : 0=Dupont 1=Martin 2=Leroy 3=Benali 4=Roux 5=Faure
+			//
+			//  Patterns  : 0=normal(88%P,7%L) 1=excellent(95%P,3%L)
+			//               2=highAbsence(50%P,8%L) 3=crisis(30%P,5%L)
+			//               4=belowAvg(75%P,10%L)
+			//
+			//  {courseIdx, profIdx, groupIdx, daysAgo, startHour, durH, salle, patternIdx}
+			// ══════════════════════════════════════════════════════════
+			Object[][] sessionDefs = {
+				// ── MATH-301 ──────────────────────────────────────
+				{0, 0, 0, 28, 8,  2, "A101", 1},
+				{0, 0, 0, 21, 8,  2, "A101", 0},
+				{0, 0, 0, 14, 8,  2, "A101", 0},
+				{0, 0, 0,  7, 8,  2, "A101", 4},
+				{0, 0, 8, 26, 10, 2, "A102", 1},
+				{0, 0, 8, 19, 10, 2, "A102", 0},
+				{0, 0, 8, 12, 10, 2, "A102", 2},
+				{0, 0, 8,  5, 10, 2, "A102", 0},
+
+				// ── ALGO-201 ──────────────────────────────────────
+				{1, 1, 1, 27, 10, 2, "B201", 0},
+				{1, 1, 1, 20, 10, 2, "B201", 1},
+				{1, 1, 1, 13, 10, 2, "B201", 2},
+				{1, 1, 1,  6, 10, 2, "B201", 0},
+				{1, 1, 5, 25, 14, 2, "B202", 0},
+				{1, 1, 5, 18, 14, 2, "B202", 1},
+				{1, 1, 5, 11, 14, 2, "B202", 3},
+				{1, 1, 5,  4, 14, 2, "B202", 4},
+
+				// ── INFO-402 ──────────────────────────────────────
+				{2, 2, 5, 24, 8,  2, "C301", 1},
+				{2, 2, 5, 17, 8,  2, "C301", 0},
+				{2, 2, 5, 10, 8,  2, "C301", 0},
+				{2, 2, 5,  3, 8,  2, "C301", 4},
+				{2, 2, 9, 23, 14, 2, "C302", 0},
+				{2, 2, 9, 16, 14, 2, "C302", 1},
+				{2, 2, 9,  9, 14, 2, "C302", 2},
+				{2, 2, 9,  2, 14, 2, "C302", 0},
+
+				// ── RESX-301 ──────────────────────────────────────
+				{3, 3, 8, 22, 14, 2, "D401", 1},
+				{3, 3, 8, 15, 14, 2, "D401", 0},
+				{3, 3, 8,  8, 14, 2, "D401", 0},
+				{3, 3, 8,  1, 14, 2, "D401", 2},
+				{3, 3, 9, 21, 16, 2, "D402", 0},
+				{3, 3, 9, 14, 16, 2, "D402", 1},
+				{3, 3, 9,  7, 16, 2, "D402", 4},
+
+				// ── PHYS-201 ──────────────────────────────────────
+				{4, 4, 2, 20, 10, 2, "E101", 0},
+				{4, 4, 2, 13, 10, 2, "E101", 2},
+				{4, 4, 2,  6, 10, 2, "E101", 0},
+				{4, 4, 3, 19, 14, 2, "E102", 1},
+				{4, 4, 3, 12, 14, 2, "E102", 0},
+				{4, 4, 3,  5, 14, 2, "E102", 3},
+
+				// ── ANGL-101 ──────────────────────────────────────
+				{5, 0, 0, 26, 16, 2, "F201", 0},
+				{5, 0, 0, 19, 16, 2, "F201", 1},
+				{5, 0, 0, 12, 16, 2, "F201", 0},
+				{5, 0, 0,  5, 16, 2, "F201", 4},
+				{5, 5, 5, 25, 16, 2, "F202", 0},
+				{5, 5, 5, 18, 16, 2, "F202", 0},
+				{5, 5, 5, 11, 16, 2, "F202", 2},
+				{5, 5, 6, 24, 16, 2, "F203", 1},
+				{5, 5, 6, 17, 16, 2, "F203", 0},
+				{5, 5, 6, 10, 16, 2, "F203", 0},
+
+				// ── SYS-302 ───────────────────────────────────────
+				{6, 5, 6, 22, 8,  2, "G101", 0},
+				{6, 5, 6, 15, 8,  2, "G101", 1},
+				{6, 5, 6,  8, 8,  2, "G101", 0},
+				{6, 5, 8, 21, 10, 2, "G102", 0},
+				{6, 5, 8, 14, 10, 2, "G102", 2},
+				{6, 5, 8,  7, 10, 2, "G102", 1},
+
+				// ── DATA-401 ──────────────────────────────────────
+				{7, 4, 9, 20, 8,  2, "H201", 1},
+				{7, 4, 9, 13, 8,  2, "H201", 0},
+				{7, 4, 9,  6, 8,  2, "H201", 4},
+				{7, 4, 7, 19, 14, 2, "H202", 0},
+				{7, 4, 7, 12, 14, 2, "H202", 0},
+				{7, 4, 7,  5, 14, 2, "H202", 2},
+			};
+
+			// presentRate, lateRate  (absent = 1 - present - late, pas d'enregistrement)
+			double[][] patterns = {
+				{0.88, 0.07},  // 0: NORMAL
+				{0.95, 0.03},  // 1: EXCELLENT
+				{0.50, 0.08},  // 2: HIGH_ABSENCE
+				{0.30, 0.05},  // 3: CRISIS
+				{0.75, 0.10},  // 4: BELOW_AVERAGE
+			};
+
+			double baseLat = 36.7065, baseLon = 3.0786; // Alger
+			int qrCounter = 1;
+
+			for (Object[] def : sessionDefs) {
+				int cIdx    = (int) def[0];
+				int pIdx    = (int) def[1];
+				int grpIdx  = (int) def[2];
+				int daysAgo = (int) def[3];
+				int hour    = (int) def[4];
+				int durH    = (int) def[5];
+				String sl   = (String) def[6];
+				int patIdx  = (int) def[7];
+
+				Session sess = new Session();
+				sess.setCourse(courses[cIdx]);
+				sess.setProfessor(profs[pIdx]);
+				sess.setGroup(groups[grpIdx]);
+				sess.setStartTime(LocalDateTime.now()
+						.minusDays(daysAgo).withHour(hour).withMinute(0).withSecond(0).withNano(0));
+				sess.setEndTime(LocalDateTime.now()
+						.minusDays(daysAgo).withHour(hour + durH).withMinute(0).withSecond(0).withNano(0));
+				sess.setQrCodeToken("QR-" + courses[cIdx].getCode() + "-" + String.format("%03d", qrCounter++));
+				sess.setSalle(sl);
+				sess.setLatitude(baseLat + rand.nextDouble() * 0.005);
+				sess.setLongitude(baseLon + rand.nextDouble() * 0.005);
+				sess.setRadiusInMeters(50.0);
+				sessionRepo.save(sess);
+
+				// Présences
+				User[] groupStudents = studentsByGroup.get(grpIdx);
+				double presentRate = patterns[patIdx][0];
+				double lateRate    = patterns[patIdx][1];
+
+				for (User student : groupStudents) {
+					double r = rand.nextDouble();
+					AttendanceStatus status;
+					int minAfter;
+					if (r < presentRate) {
+						status   = AttendanceStatus.PRESENT;
+						minAfter = 2 + rand.nextInt(8);       // 2-9 min
+					} else if (r < presentRate + lateRate) {
+						status   = AttendanceStatus.LATE;
+						minAfter = 16 + rand.nextInt(20);     // 16-35 min
+					} else {
+						continue; // ABSENT = pas d'enregistrement
+					}
 					Attendance a = new Attendance();
-					a.setStudent(students[i]);
-					a.setSession(session);
+					a.setStudent(student);
+					a.setSession(sess);
 					a.setStatus(status);
-					a.setScanTime(session.getStartTime().plusMinutes(
-						status == AttendanceStatus.LATE ? 20 : 5
-					));
+					a.setScanTime(sess.getStartTime().plusMinutes(minAfter));
 					a.setIsOfflineSync(false);
-					a.setDeviceId("device-" + studentData[i][1].replace("bio-", ""));
-					a.setScanLatitude(session.getLatitude() + (Math.random() * 0.0002 - 0.0001));
-					a.setScanLongitude(session.getLongitude() + (Math.random() * 0.0002 - 0.0001));
+					a.setDeviceId("dev-" + student.getBiometricToken());
+					a.setScanLatitude(sess.getLatitude()  + (rand.nextDouble() * 0.0004 - 0.0002));
+					a.setScanLongitude(sess.getLongitude() + (rand.nextDouble() * 0.0004 - 0.0002));
 					attendanceRepo.save(a);
 				}
 			}
 
-			// Quelques présences sur la session live
-			for (int i = 0; i < 5; i++) {
+			// ── SESSION LIVE (aujourd'hui, en cours) ─────────────────
+			Session live = new Session();
+			live.setCourse(courses[2]); // INFO-402
+			live.setProfessor(profs[2]);
+			live.setGroup(groups[5]);   // API-2 A
+			live.setStartTime(LocalDateTime.now().minusHours(1).withMinute(0).withSecond(0).withNano(0));
+			live.setEndTime(LocalDateTime.now().plusHours(1).withMinute(0).withSecond(0).withNano(0));
+			live.setQrCodeToken("QR-LIVE-" + String.format("%03d", qrCounter++));
+			live.setSalle("C301");
+			live.setLatitude(baseLat);
+			live.setLongitude(baseLon);
+			live.setRadiusInMeters(50.0);
+			sessionRepo.save(live);
+
+			User[] liveStudents = studentsByGroup.get(5);
+			int checkedIn = (int) (liveStudents.length * 0.72); // 72% déjà pointés
+			for (int i = 0; i < checkedIn; i++) {
 				Attendance a = new Attendance();
-				a.setStudent(students[i]);
-				a.setSession(s7);
-				a.setStatus(AttendanceStatus.PRESENT);
-				a.setScanTime(LocalDateTime.now().minusMinutes(45 - i * 5));
+				a.setStudent(liveStudents[i]);
+				a.setSession(live);
+				a.setStatus(i < checkedIn * 0.92 ? AttendanceStatus.PRESENT : AttendanceStatus.LATE);
+				a.setScanTime(live.getStartTime().plusMinutes(2 + rand.nextInt(50)));
 				a.setIsOfflineSync(false);
-				a.setDeviceId("device-" + studentData[i][1].replace("bio-", ""));
-				a.setScanLatitude(s7.getLatitude() + 0.00005);
-				a.setScanLongitude(s7.getLongitude() + 0.00005);
+				a.setDeviceId("dev-" + liveStudents[i].getBiometricToken());
+				a.setScanLatitude(baseLat + rand.nextDouble() * 0.0002);
+				a.setScanLongitude(baseLon + rand.nextDouble() * 0.0002);
 				attendanceRepo.save(a);
 			}
 
 			System.out.println("[DataSeed] Injection terminée :");
-			System.out.println("  - " + groupRepo.count() + " groupes");
-			System.out.println("  - " + userRepo.count() + " utilisateurs (1 admin, 3 profs, 10 étudiants)");
-			System.out.println("  - " + courseRepo.count() + " cours");
-			System.out.println("  - " + sessionRepo.count() + " sessions (dont 1 en cours)");
+			System.out.println("  - " + groupRepo.count()      + " groupes");
+			System.out.println("  - " + userRepo.count()       + " utilisateurs (1 admin, 6 profs, ~546 étudiants)");
+			System.out.println("  - " + courseRepo.count()     + " cours");
+			System.out.println("  - " + sessionRepo.count()    + " sessions (dont 1 en cours)");
 			System.out.println("  - " + attendanceRepo.count() + " présences enregistrées");
 		};
 	}

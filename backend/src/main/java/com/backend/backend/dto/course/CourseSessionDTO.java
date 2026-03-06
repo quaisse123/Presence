@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 
 @Data
 public class CourseSessionDTO {
+    private Long id;
     private LocalDate date;
     private LocalDateTime startTime;
     private LocalDateTime endTime;

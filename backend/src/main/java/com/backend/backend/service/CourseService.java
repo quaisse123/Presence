@@ -1,11 +1,14 @@
 package com.backend.backend.service;
 
 import com.backend.backend.dao.entities.Course;
+import com.backend.backend.dto.course.CourseCreateDTO;
+import com.backend.backend.dto.course.CourseResponseDTO;
+
 import java.util.List;
 
 public interface CourseService {
 
-    Course createCourse(Course course);
+    CourseResponseDTO createCourse(CourseCreateDTO course);
 
     Course getCourseById(Long id);
 

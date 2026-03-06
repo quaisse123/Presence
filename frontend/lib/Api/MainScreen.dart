@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/Api/Header.dart';
+import 'package:frontend/Header.dart';
 import 'package:frontend/pages/profDash.dart';
+import 'package:frontend/pages/coursesPage.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 
 // ─────────────────────────────────────────────
@@ -22,6 +23,7 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _pages = [
     const ProfDashPage(),
+    const CoursesPage(),
     const ProfDashPage(), // TODO: replace with SearchPage
     const ProfDashPage(), // TODO: replace with ProfilePage
   ];

@@ -25,8 +25,8 @@ public class Course {
     @Column(nullable = false, unique = true)
     private String code;
 
-    @Column(nullable = false)
-    private String filiere ;
+    // @Column(nullable = false)
+    // private String filiere ;
 
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL)
     @JsonIgnore
