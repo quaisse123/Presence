@@ -40,6 +40,8 @@ public class SessionManager implements SessionService {
     public List<Session> getAllSessions() {
         return sessionRepository.findAll();
     }
+
+    // ── Session Summaries ──────────────────────────────────────────────────
     
     public Page<SessionSummaryDTO> getAllSessionSummaries(int page,int size) {
         Page<Session> sessions = sessionRepository.findAllByOrderByStartTimeDesc(PageRequest.of(page,size));
@@ -61,6 +63,9 @@ public class SessionManager implements SessionService {
         return dto;
     }
 
+    // ───────────────────────────────────────────────────────────────────────
+    
+    
     @Override
     public Session updateSession(Long id, Session session) {
         return null;
@@ -116,4 +121,9 @@ public class SessionManager implements SessionService {
 
         return dto;
     }
+
+
+    // Qrcode methods will
+     
+
 }

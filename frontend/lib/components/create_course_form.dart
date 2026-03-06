@@ -13,9 +13,9 @@ class _C {
   static const textPrimary = Color(0xFF202124);
   static const textSecondary = Color(0xFF5F6368);
   static const green = Color(0xFF1E8B4C);
-  static const greenBg = Color(0xFFE6F4EA);
+  // static const greenBg = Color(0xFFE6F4EA);
   static const red = Color(0xFFD93025);
-  static const redBg = Color(0xFFFCE8E6);
+  // static const redBg = Color(0xFFFCE8E6);
 }
 
 // ─────────────────────────────────────────────

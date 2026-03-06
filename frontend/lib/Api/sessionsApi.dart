@@ -24,3 +24,12 @@ Future<Map<String, dynamic>> fetchSessionDetails(int id) async {
     throw Exception('Failed to load session details');
   }
 }
+
+Future<String> fetchQrToken() async {
+  final response = await http.get(Uri.parse('${apiUrl}/jwt/generate-qr-token'));
+  if (response.statusCode == 200) {
+    return response.body;
+  } else {
+    throw Exception('Failed to fetch QR token');
+  }
+}

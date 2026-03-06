@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/Api/sessionsApi.dart';
+import 'package:frontend/components/QrModal.dart';
 import 'package:frontend/pages/profDash.dart'
     show humanReadableDate, formatTime;
 
@@ -298,6 +299,7 @@ class _SessionDetailsPageState extends State<SessionDetailsPage> {
               tooltip: 'Show QR Code',
               onPressed: () {
                 // TODO: show QR code bottom sheet
+                showQrModal(context);
               },
               icon: const Icon(Icons.qr_code_rounded, color: _C.primary),
             ),

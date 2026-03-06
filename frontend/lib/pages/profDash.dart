@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/Api/sessionsApi.dart';
+import 'package:frontend/components/QrModal.dart';
 import 'package:frontend/pages/sessionDetails.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 
@@ -234,73 +235,74 @@ class _ProfDashPageState extends State<ProfDashPage> {
     );
   }
 
-  void _showQrCode(Session session) {
+  void _showQrCode(Session session) async {
     // TODO: fetch real QR token and render qr_flutter widget
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 4,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              '${session.courseTitle} – QR Code',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: _AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${humanReadableDate(session.startTime)} · ${formatTime(session.startTime)} – ${formatTime(session.endTime)}',
-              style: const TextStyle(color: _AppColors.textSecondary),
-            ),
-            const SizedBox(height: 28),
-            // Placeholder QR square – replace with qr_flutter's QrImageView
-            Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                color: _AppColors.primaryLight,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _AppColors.primary, width: 2),
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.qr_code_2_rounded,
-                  size: 120,
-                  color: _AppColors.primary,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Session ID: ${session.id}',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[500],
-                fontFamily: 'monospace',
-              ),
-            ),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
-    );
-    debugPrint('SHOW QR for session id=${session.id}');
+    // showModalBottomSheet(
+    //   context: context,
+    //   shape: const RoundedRectangleBorder(
+    //     borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    //   ),
+    //   builder: (_) => Padding(
+    //     padding: const EdgeInsets.all(32),
+    //     child: Column(
+    //       mainAxisSize: MainAxisSize.min,
+    //       children: [
+    //         Container(
+    //           width: 4,
+    //           height: 4,
+    //           decoration: BoxDecoration(
+    //             color: Colors.grey[300],
+    //             borderRadius: BorderRadius.circular(2),
+    //           ),
+    //         ),
+    //         const SizedBox(height: 24),
+    //         Text(
+    //           '${session.courseTitle} – QR Code',
+    //           style: const TextStyle(
+    //             fontWeight: FontWeight.bold,
+    //             fontSize: 18,
+    //             color: _AppColors.textPrimary,
+    //           ),
+    //         ),
+    //         const SizedBox(height: 4),
+    //         Text(
+    //           '${humanReadableDate(session.startTime)} · ${formatTime(session.startTime)} – ${formatTime(session.endTime)}',
+    //           style: const TextStyle(color: _AppColors.textSecondary),
+    //         ),
+    //         const SizedBox(height: 28),
+    //         // Placeholder QR square – replace with qr_flutter's QrImageView
+    //         Container(
+    //           width: 180,
+    //           height: 180,
+    //           decoration: BoxDecoration(
+    //             color: _AppColors.primaryLight,
+    //             borderRadius: BorderRadius.circular(16),
+    //             border: Border.all(color: _AppColors.primary, width: 2),
+    //           ),
+    //           child: const Center(
+    //             child: Icon(
+    //               Icons.qr_code_2_rounded,
+    //               size: 120,
+    //               color: _AppColors.primary,
+    //             ),
+    //           ),
+    //         ),
+    //         const SizedBox(height: 16),
+    //         Text(
+    //           'Session ID: ${session.id}',
+    //           style: TextStyle(
+    //             fontSize: 12,
+    //             color: Colors.grey[500],
+    //             fontFamily: 'monospace',
+    //           ),
+    //         ),
+    //         const SizedBox(height: 24),
+    //       ],
+    //     ),
+    //   ),
+    // );
+    // debugPrint('SHOW QR for session id=${session.id}');
+    showQrModal(context);
   }
 
   void _viewAttendance(Session session) {
