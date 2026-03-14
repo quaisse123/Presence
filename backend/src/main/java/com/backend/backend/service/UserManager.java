@@ -19,7 +19,10 @@ public class UserManager implements UserService {
 
     @Override
     public User getUserById(Long id) {
-        return null;
+        if (id == null) {
+            return null;
+        }
+        return userRepository.findById(id).orElse(null);
     }
 
     @Override

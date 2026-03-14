@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/Api/MainScreen.dart';
-import 'package:frontend/pages/home.dart';
+import 'package:frontend/Api/AuthApi.dart';
+import 'package:frontend/Api/JwtService.dart';
+import 'package:frontend/MainScreen.dart';
 import 'package:frontend/pages/profDash.dart';
+import 'package:http/http.dart';
 
 void main() {
   runApp(const MyApp());
@@ -46,14 +48,26 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _handleLogin() async {
+    Map<String, dynamic> tokens;
+
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
-      await Future.delayed(const Duration(seconds: 2));
+      try {
+        tokens = await login(_emailController.text, _passwordController.text);
+        await saveTokens(tokens);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainScreen()),
+        );
+      } catch (e) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+        return;
+      }
+
       setState(() => _isLoading = false);
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const MainScreen()),
-      );
     }
   }
 
@@ -204,6 +218,13 @@ class _LoginPageState extends State<LoginPage> {
     Widget? suffixIcon,
     String? Function(String?)? validator,
   }) {
+    // Ajout autofillHints pour email et password
+    List<String>? autofillHints;
+    if (label.toLowerCase().contains('email')) {
+      autofillHints = [AutofillHints.email];
+    } else if (label.toLowerCase().contains('password')) {
+      autofillHints = [AutofillHints.password];
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -227,6 +248,7 @@ class _LoginPageState extends State<LoginPage> {
             fontWeight: FontWeight.w500,
           ),
           validator: validator,
+          autofillHints: autofillHints,
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(

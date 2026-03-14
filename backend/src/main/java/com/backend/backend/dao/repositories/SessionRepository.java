@@ -10,4 +10,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface SessionRepository extends JpaRepository<Session, Long> {
     Page<Session> findAllByOrderByStartTimeDesc(Pageable pageable); // ou Asc pour croissant
+
+    Session getSessionByQrCodeToken(String qrCodeToken);
 }

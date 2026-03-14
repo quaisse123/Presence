@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/Api/AuthApi.dart';
+import 'package:frontend/Api/JwtService.dart';
 import 'package:frontend/Api/sessionsApi.dart';
 import 'package:frontend/components/QrModal.dart';
 import 'package:frontend/pages/sessionDetails.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ─────────────────────────────────────────────
 //  DATA MODELS
