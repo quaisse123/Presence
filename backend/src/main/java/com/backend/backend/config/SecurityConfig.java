@@ -19,6 +19,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                .cors(cors -> {
+                })
                 // Désactive CSRF car on est en stateless (API REST)
                 .csrf(csrf -> csrf
                         .ignoringRequestMatchers("/h2-console/**") // Désactive CSRF pour H2
@@ -29,15 +31,17 @@ public class SecurityConfig {
                 // On définit les règles d'autorisation
                 .authorizeHttpRequests(auth -> auth
                         // Autorise librement les endpoints d'authentification et de refresh
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/jwt/refresh",
-                                "/api/jwt/generate-qr-token",
+                                // "/api/jwt/generate-qr-token",
                                 "/api/attendance/scan",
                                 "/h2-console/**" // Si vous utilisez la console H2 pour le développement
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/sessions/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/attendance/scan").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/jwt/generate-qr-token").permitAll()
                         // Toutes les autres requêtes nécessitent un JWT valide
                         .anyRequest().authenticated())
                 // On précise que la session est stateless (pas de session côté serveur)

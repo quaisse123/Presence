@@ -1,23 +1,25 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:frontend/Api/sessionsApi.dart';
+import 'package:frontend/Api/QrCodeApi.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 /// Displays the QR modal as a bottom sheet.
 /// Usage:
-///   showQrModal(context, token: 'your.jwt.token');
-void showQrModal(BuildContext context) {
+///   showQrModal(context, sessionId: 5);
+void showQrModal(BuildContext context, {required int sessionId}) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => QrModal(),
+    builder: (_) => QrModal(sessionId: sessionId),
   );
 }
 
 class QrModal extends StatefulWidget {
-  const QrModal({super.key});
+  final int sessionId;
+
+  const QrModal({super.key, required this.sessionId});
 
   @override
   State<QrModal> createState() => _QrModalState();
@@ -35,7 +37,7 @@ class _QrModalState extends State<QrModal> {
   }
 
   Future<void> fetchAndSetToken() async {
-    final newToken = await fetchQrToken(); // ta fonction API
+    final newToken = await fetchQrToken(sessionId: widget.sessionId);
     debugPrint(
       'Fetching new QR token : ${newToken.substring(newToken.length - 10)}',
     );

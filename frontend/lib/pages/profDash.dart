@@ -1,21 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/Api/AuthApi.dart';
-import 'package:frontend/Api/JwtService.dart';
 import 'package:frontend/Api/sessionsApi.dart';
 import 'package:frontend/components/QrModal.dart';
 import 'package:frontend/pages/sessionDetails.dart';
-import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-// ─────────────────────────────────────────────
-//  DATA MODELS
-// ─────────────────────────────────────────────
 
 enum SessionStatus { active, upcoming, completed }
 
 extension SessionStatusParsing on SessionStatus {
-  static SessionStatus fromString(String s) {
-    switch (s.toUpperCase()) {
+  static SessionStatus fromString(String status) {
+    switch (status.toUpperCase()) {
       case 'ACTIVE':
         return SessionStatus.active;
       case 'UPCOMING':
@@ -71,10 +63,6 @@ class Session {
   }
 }
 
-// ─────────────────────────────────────────────
-//  DATE / TIME HELPERS  (shared)
-// ─────────────────────────────────────────────
-
 String humanReadableDate(DateTime date) {
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
@@ -87,46 +75,31 @@ String humanReadableDate(DateTime date) {
 }
 
 String formatTime(DateTime dt) {
-  final hour = dt.hour;
-  final minute = dt.minute.toString().padLeft(2, '0');
-  final period = hour >= 12 ? 'PM' : 'AM';
-  final displayHour = hour % 12 == 0 ? 12 : hour % 12;
-  return '$displayHour:$minute $period';
+  final h = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+  final m = dt.minute.toString().padLeft(2, '0');
+  final p = dt.hour >= 12 ? 'PM' : 'AM';
+  return '$h:$m $p';
 }
 
-// ─────────────────────────────────────────────
-//  THEME CONSTANTS
-// ─────────────────────────────────────────────
-
-class _AppColors {
-  // Brand
-  static const primary = Color(0xFF1A73E8); // Google-blue feel
-  static const primaryLight = Color(0xFFE8F0FE);
-
-  // Status badges
-  static const activeGreen = Color(0xFF1E8B4C);
-  static const activeBg = Color(0xFFE6F4EA);
-  static const upcomingBlue = Color(0xFF1565C0);
-  static const upcomingBg = Color(0xFFE3EDFD);
-  static const completedGrey = Color(0xFF5F6368);
-  static const completedBg = Color(0xFFF1F3F4);
-
-  // Neutral
-  static const surface = Color(0xFFF9FAFB);
-  static const cardBg = Colors.white;
-  static const divider = Color(0xFFE8EAED);
-  static const textPrimary = Color(0xFF202124);
-  static const textSecondary = Color(0xFF5F6368);
-
-  // Attendance bar
-  static const attendanceHigh = Color(0xFF34A853);
-  static const attendanceMedium = Color(0xFFFBBC04);
-  static const attendanceLow = Color(0xFFEA4335);
+class _DashTheme {
+  static const pageBg = Color(0xFFF1F3F6);
+  static const card = Colors.white;
+  static const primary = Color(0xFF1C4FBF);
+  static const primaryDeep = Color(0xFF163B9A);
+  static const primarySoft = Color(0xFFEAF0FE);
+  static const textPrimary = Color(0xFF1D293D);
+  static const textSecondary = Color(0xFF7B8798);
+  static const border = Color(0xFFE4E9F1);
+  static const success = Color(0xFF1C9B63);
+  static const successSoft = Color(0xFFE6F7EF);
+  static const warning = Color(0xFFCC8A2E);
+  static const warningSoft = Color(0xFFFFF3E3);
+  static const danger = Color(0xFFD94B4B);
+  static const dangerSoft = Color(0xFFFDECEC);
+  static const neutral = Color(0xFF6E7E92);
+  static const neutralSoft = Color(0xFFF0F3F8);
+  static const surfaceSoft = Color(0xFFF6F8FC);
 }
-
-// ─────────────────────────────────────────────
-//  PAGE WIDGET
-// ─────────────────────────────────────────────
 
 class ProfDashPage extends StatefulWidget {
   const ProfDashPage({super.key});
@@ -140,21 +113,27 @@ class _ProfDashPageState extends State<ProfDashPage> {
   bool _isLoading = true;
   String? _error;
 
-  // For the future search/filter bar (collapsed by default)
-  bool _showFilterBar = false;
-  String _filterStatus = 'All'; // 'All' | 'Active' | 'Upcoming' | 'Completed'
-
-  // Pagination
   int _currentPage = 0;
   int _totalPages = 1;
 
-  // Navigation tab index
-  int _currentIndex = 0;
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+  String _filterStatus = 'All';
+  bool _showFilters = false;
 
   @override
   void initState() {
     super.initState();
     _loadSessions();
+    _searchController.addListener(
+      () => setState(() => _searchQuery = _searchController.text.toLowerCase()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSessions() async {
@@ -162,14 +141,14 @@ class _ProfDashPageState extends State<ProfDashPage> {
       _isLoading = true;
       _error = null;
     });
+
     try {
-      final data = await fetchSessions(page: _currentPage, size: 4);
+      final data = await fetchSessions(page: _currentPage, size: 6);
       setState(() {
         _sessions = (data['content'] as List)
             .map((e) => Session.fromJson(e as Map<String, dynamic>))
             .toList();
-        // _currentPage = data['number']; // ou 'page' selon ton backend
-        _totalPages = data['totalPages'];
+        _totalPages = data['totalPages'] as int;
         _isLoading = false;
       });
     } catch (e) {
@@ -181,36 +160,92 @@ class _ProfDashPageState extends State<ProfDashPage> {
     }
   }
 
-  // ── Helpers ──────────────────────────────────
-
   List<Session> get _filteredSessions {
-    if (_filterStatus == 'All') return _sessions;
-    return _sessions.where((s) {
-      switch (_filterStatus) {
-        case 'Active':
-          return s.status == SessionStatus.active;
-        case 'Upcoming':
-          return s.status == SessionStatus.upcoming;
-        case 'Completed':
-          return s.status == SessionStatus.completed;
-        default:
-          return true;
-      }
+    return _sessions.where((session) {
+      final statusOk = switch (_filterStatus) {
+        'Active' => session.status == SessionStatus.active,
+        'Upcoming' => session.status == SessionStatus.upcoming,
+        'Completed' => session.status == SessionStatus.completed,
+        _ => true,
+      };
+
+      final queryOk =
+          _searchQuery.isEmpty ||
+          session.courseTitle.toLowerCase().contains(_searchQuery) ||
+          session.courseCode.toLowerCase().contains(_searchQuery) ||
+          session.salle.toLowerCase().contains(_searchQuery);
+
+      return statusOk && queryOk;
     }).toList();
   }
 
-  Future<void> _onRefresh() async {
+  int get _activeCount =>
+      _sessions.where((s) => s.status == SessionStatus.active).length;
+
+  int get _upcomingCount =>
+      _sessions.where((s) => s.status == SessionStatus.upcoming).length;
+
+  int get _completedCount =>
+      _sessions.where((s) => s.status == SessionStatus.completed).length;
+
+  double get _attendanceRate {
+    final present = _sessions.fold<int>(0, (sum, s) => sum + s.attendance);
+    final total = _sessions.fold<int>(0, (sum, s) => sum + s.totalStudents);
+    if (total == 0) {
+      return 0;
+    }
+    return (present / total) * 100;
+  }
+
+  Future<void> _goToPreviousPage() async {
+    if (_currentPage == 0) {
+      return;
+    }
+    setState(() => _currentPage--);
     await _loadSessions();
   }
 
-  void _deleteSession(Session session) {
+  Future<void> _goToNextPage() async {
+    if (_currentPage >= _totalPages - 1) {
+      return;
+    }
+    setState(() => _currentPage++);
+    await _loadSessions();
+  }
+
+  void _showQrCode(Session session) {
+    showQrModal(context, sessionId: session.id);
+  }
+
+  void _viewAttendance(Session session) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Attendance details for ${session.courseTitle} - coming soon',
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _createSession() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Create session form - coming soon'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _confirmDelete(Session session) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Session'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text('Delete session'),
         content: Text(
-          'Are you sure you want to delete the "${session.courseTitle}" session?',
+          'Delete "${session.courseTitle}" (${session.courseCode})?',
+          style: const TextStyle(color: _DashTheme.textSecondary),
         ),
         actions: [
           TextButton(
@@ -218,18 +253,19 @@ class _ProfDashPageState extends State<ProfDashPage> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(
+              backgroundColor: _DashTheme.danger,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () {
               Navigator.pop(context);
               setState(() => _sessions.removeWhere((s) => s.id == session.id));
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('${session.courseTitle} session deleted.'),
+                  content: Text('${session.courseTitle} deleted.'),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
-              // TODO: call DELETE /sessions/{id}
-              debugPrint('DELETE session id=${session.id}');
             },
             child: const Text('Delete'),
           ),
@@ -238,352 +274,346 @@ class _ProfDashPageState extends State<ProfDashPage> {
     );
   }
 
-  void _showQrCode(Session session) async {
-    // TODO: fetch real QR token and render qr_flutter widget
-    // showModalBottomSheet(
-    //   context: context,
-    //   shape: const RoundedRectangleBorder(
-    //     borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    //   ),
-    //   builder: (_) => Padding(
-    //     padding: const EdgeInsets.all(32),
-    //     child: Column(
-    //       mainAxisSize: MainAxisSize.min,
-    //       children: [
-    //         Container(
-    //           width: 4,
-    //           height: 4,
-    //           decoration: BoxDecoration(
-    //             color: Colors.grey[300],
-    //             borderRadius: BorderRadius.circular(2),
-    //           ),
-    //         ),
-    //         const SizedBox(height: 24),
-    //         Text(
-    //           '${session.courseTitle} – QR Code',
-    //           style: const TextStyle(
-    //             fontWeight: FontWeight.bold,
-    //             fontSize: 18,
-    //             color: _AppColors.textPrimary,
-    //           ),
-    //         ),
-    //         const SizedBox(height: 4),
-    //         Text(
-    //           '${humanReadableDate(session.startTime)} · ${formatTime(session.startTime)} – ${formatTime(session.endTime)}',
-    //           style: const TextStyle(color: _AppColors.textSecondary),
-    //         ),
-    //         const SizedBox(height: 28),
-    //         // Placeholder QR square – replace with qr_flutter's QrImageView
-    //         Container(
-    //           width: 180,
-    //           height: 180,
-    //           decoration: BoxDecoration(
-    //             color: _AppColors.primaryLight,
-    //             borderRadius: BorderRadius.circular(16),
-    //             border: Border.all(color: _AppColors.primary, width: 2),
-    //           ),
-    //           child: const Center(
-    //             child: Icon(
-    //               Icons.qr_code_2_rounded,
-    //               size: 120,
-    //               color: _AppColors.primary,
-    //             ),
-    //           ),
-    //         ),
-    //         const SizedBox(height: 16),
-    //         Text(
-    //           'Session ID: ${session.id}',
-    //           style: TextStyle(
-    //             fontSize: 12,
-    //             color: Colors.grey[500],
-    //             fontFamily: 'monospace',
-    //           ),
-    //         ),
-    //         const SizedBox(height: 24),
-    //       ],
-    //     ),
-    //   ),
-    // );
-    // debugPrint('SHOW QR for session id=${session.id}');
-    showQrModal(context);
-  }
+  @override
+  Widget build(BuildContext context) {
+    final showSummary = !_isLoading && _error == null;
+    final hasFilters = _filterStatus != 'All' || _searchQuery.isNotEmpty;
 
-  void _viewAttendance(Session session) {
-    // TODO: navigate to AttendancePage with sessionId
-    debugPrint('VIEW attendance for session id=${session.id}');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Attendance details for ${session.courseTitle} – coming soon',
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _createSession,
+        backgroundColor: _DashTheme.primary,
+        foregroundColor: Colors.white,
+        elevation: 2,
+        icon: const Icon(Icons.add_rounded, size: 20),
+        label: const Text(
+          'Create Session',
+          style: TextStyle(fontWeight: FontWeight.w700),
         ),
-        behavior: SnackBarBehavior.floating,
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      body: RefreshIndicator(
+        onRefresh: _loadSessions,
+        color: _DashTheme.primary,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 104),
+          children: [
+            _OverviewCard(
+              total: showSummary ? _sessions.length : 0,
+              active: showSummary ? _activeCount : 0,
+              upcoming: showSummary ? _upcomingCount : 0,
+              completed: showSummary ? _completedCount : 0,
+              attendanceRate: showSummary ? _attendanceRate : 0,
+            ),
+            const SizedBox(height: 12),
+            _SearchBar(
+              controller: _searchController,
+              showFilters: _showFilters,
+              onToggleFilters: () =>
+                  setState(() => _showFilters = !_showFilters),
+            ),
+            if (!_showFilters && _filterStatus != 'All') ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _DashTheme.primarySoft,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    'Current filter: $_filterStatus',
+                    style: const TextStyle(
+                      color: _DashTheme.primary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            if (_showFilters) ...[
+              const SizedBox(height: 8),
+              _StatusFilters(
+                selectedStatus: _filterStatus,
+                onStatusChanged: (value) =>
+                    setState(() => _filterStatus = value),
+              ),
+            ],
+            const SizedBox(height: 14),
+            if (_isLoading)
+              const _LoadingState()
+            else if (_error != null)
+              _ErrorState(error: _error!, onRetry: _loadSessions)
+            else if (_filteredSessions.isEmpty)
+              _EmptyState(
+                hasFilters: hasFilters,
+                onCreateTap: _createSession,
+                onResetFilters: () {
+                  setState(() {
+                    _filterStatus = 'All';
+                    _searchController.clear();
+                  });
+                },
+              )
+            else ...[
+              ..._filteredSessions.map(
+                (session) => Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: _SessionCard(
+                    session: session,
+                    onQrTap: () => _showQrCode(session),
+                    onAttendanceTap: () => _viewAttendance(session),
+                    onDeleteTap: () => _confirmDelete(session),
+                  ),
+                ),
+              ),
+              if (_totalPages > 1) ...[
+                const SizedBox(height: 2),
+                _PaginationBar(
+                  currentPage: _currentPage,
+                  totalPages: _totalPages,
+                  onPrevious: _goToPreviousPage,
+                  onNext: _goToNextPage,
+                ),
+              ],
+            ],
+          ],
+        ),
       ),
     );
   }
+}
 
-  void _createSession() {
-    // TODO: push CreateSessionPage
-    debugPrint('CREATE new session');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Create session form – coming soon'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
+class _OverviewCard extends StatelessWidget {
+  final int total;
+  final int active;
+  final int upcoming;
+  final int completed;
+  final double attendanceRate;
 
-  void _openProfile() {
-    // TODO: show dropdown with Settings / Logout
-    debugPrint('OPEN profile menu');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Profile menu – coming soon'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  void _openNotifications() {
-    // TODO: push NotificationsPage
-    debugPrint('OPEN notifications');
-  }
-
-  String getHumanReadableDate(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final target = DateTime(date.year, date.month, date.day);
-
-    if (target == today) return 'Today';
-    if (target == today.subtract(const Duration(days: 1))) return 'Yesterday';
-    // Ajoute d’autres règles si besoin
-    return '${date.day}/${date.month}/${date.year}';
-  }
-
-  // ── Build ─────────────────────────────────────
+  const _OverviewCard({
+    required this.total,
+    required this.active,
+    required this.upcoming,
+    required this.completed,
+    required this.attendanceRate,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _AppColors.surface,
-      // ── App Bar ────────────────────────────────
-      // appBar: _buildAppBar(context),
-      // ── Body ───────────────────────────────────
-      body: Column(
-        children: [
-          // Filter / search bar (collapsible)
-          _FilterBar(
-            visible: _showFilterBar,
-            selectedStatus: _filterStatus,
-            onStatusChanged: (v) => setState(() => _filterStatus = v),
-          ),
-          // Session list
-          Expanded(
-            child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: _AppColors.primary),
-                  )
-                : _error != null
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.cloud_off_rounded,
-                            size: 52,
-                            color: _AppColors.textSecondary,
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'Failed to load sessions',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: _AppColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _error!,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: _AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          FilledButton.icon(
-                            onPressed: _loadSessions,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: _AppColors.primary,
-                            ),
-                            icon: const Icon(Icons.refresh_rounded),
-                            label: const Text('Retry'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: _onRefresh,
-                    color: _AppColors.primary,
-                    child: _filteredSessions.isEmpty
-                        ? _EmptyState(onCreateTap: _createSession)
-                        : ListView.builder(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                            itemCount: _filteredSessions.length + 1,
-                            itemBuilder: (_, i) {
-                              if (i == _filteredSessions.length) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: _PaginationBar(
-                                    currentPage: _currentPage,
-                                    totalPages: _totalPages,
-                                    onPrevious: () {
-                                      if (_currentPage > 0) {
-                                        setState(() {
-                                          _currentPage--;
-                                        });
-                                        _loadSessions();
-                                      }
-                                    },
-                                    onNext: () {
-                                      if (_currentPage < _totalPages - 1) {
-                                        setState(() {
-                                          _currentPage++;
-                                        });
-                                        _loadSessions();
-                                      }
-                                    },
-                                  ),
-                                );
-                              }
-                              return _SessionCard(
-                                session: _filteredSessions[i],
-                                onQrTap: () =>
-                                    _showQrCode(_filteredSessions[i]),
-                                onAttendanceTap: () =>
-                                    _viewAttendance(_filteredSessions[i]),
-                                onDeleteTap: () =>
-                                    _deleteSession(_filteredSessions[i]),
-                              );
-                            },
-                          ),
-                  ),
+    final normalizedAttendance = (attendanceRate / 100)
+        .clamp(0.0, 1.0)
+        .toDouble();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_DashTheme.primaryDeep, _DashTheme.primary],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1A0A2F7A),
+            blurRadius: 12,
+            offset: Offset(0, 6),
           ),
         ],
       ),
-      // ── FAB ────────────────────────────────────
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _createSession,
-        backgroundColor: _AppColors.primary,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text(
-          'New Session',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Text(
+                '$total sessions',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const Spacer(),
+              const Icon(
+                Icons.people_alt_rounded,
+                size: 14,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '${attendanceRate.toStringAsFixed(1)}%',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(100),
+            child: LinearProgressIndicator(
+              value: normalizedAttendance,
+              minHeight: 4,
+              backgroundColor: const Color(0x3FFFFFFF),
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _OverviewStat(
+                icon: Icons.radio_button_checked_rounded,
+                label: 'Active',
+                value: '$active',
+              ),
+              const SizedBox(width: 8),
+              _OverviewStat(
+                icon: Icons.schedule_rounded,
+                label: 'Upcoming',
+                value: '$upcoming',
+              ),
+              const SizedBox(width: 8),
+              _OverviewStat(
+                icon: Icons.task_alt_rounded,
+                label: 'Done',
+                value: '$completed',
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
+}
 
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
-    return AppBar(
-      elevation: 0,
-      scrolledUnderElevation: 2,
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.white,
-      titleSpacing: 20,
-      title: Row(
-        children: [
-          // Logo mark
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: _AppColors.primary,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.school_rounded,
-              color: Colors.white,
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 10),
-          const Text(
-            'PresenceApp',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 20,
-              color: _AppColors.textPrimary,
-              letterSpacing: -0.3,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        // Filter toggle
-        IconButton(
-          tooltip: 'Filter sessions',
-          onPressed: () => setState(() => _showFilterBar = !_showFilterBar),
-          icon: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            child: Icon(
-              _showFilterBar
-                  ? Icons.filter_list_off_rounded
-                  : Icons.filter_list_rounded,
-              key: ValueKey(_showFilterBar),
-              color: _showFilterBar
-                  ? _AppColors.primary
-                  : _AppColors.textSecondary,
-            ),
-          ),
+class _OverviewStat extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _OverviewStat({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0x1FFFFFFF),
+          borderRadius: BorderRadius.circular(10),
         ),
-        // Notification bell – badge-ready via Stack
-        Stack(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            IconButton(
-              tooltip: 'Notifications',
-              onPressed: _openNotifications,
-              icon: const Icon(
-                Icons.notifications_none_rounded,
-                color: _AppColors.textSecondary,
-              ),
-            ),
-            // TODO: replace Positioned container with real badge count
-            Positioned(
-              right: 10,
-              top: 10,
-              child: Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
+            Icon(icon, color: Colors.white, size: 12),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                '$label $value',
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xEEFFFFFF),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
           ],
         ),
-        // Profile avatar – dropdown-ready
-        GestureDetector(
-          onTap: _openProfile,
-          child: Padding(
-            padding: const EdgeInsets.only(right: 16, left: 4),
-            child: CircleAvatar(
-              radius: 18,
-              backgroundColor: _AppColors.primaryLight,
-              // TODO: replace with NetworkImage(profileUrl) when auth is ready
-              child: const Text(
-                'P',
-                style: TextStyle(
-                  color: _AppColors.primary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
+      ),
+    );
+  }
+}
+
+class _SearchBar extends StatelessWidget {
+  final TextEditingController controller;
+  final bool showFilters;
+  final VoidCallback onToggleFilters;
+
+  const _SearchBar({
+    required this.controller,
+    required this.showFilters,
+    required this.onToggleFilters,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _DashTheme.border),
+            ),
+            child: TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                hintText: 'Search by title, code or room',
+                hintStyle: const TextStyle(
+                  color: _DashTheme.textSecondary,
+                  fontSize: 14,
                 ),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  color: _DashTheme.textSecondary,
+                  size: 20,
+                ),
+                suffixIcon: controller.text.isNotEmpty
+                    ? IconButton(
+                        onPressed: controller.clear,
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: _DashTheme.textSecondary,
+                          size: 18,
+                        ),
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: onToggleFilters,
+            child: Ink(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: showFilters ? _DashTheme.primarySoft : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: showFilters ? _DashTheme.primary : _DashTheme.border,
+                  width: showFilters ? 1.4 : 1,
+                ),
+              ),
+              child: Icon(
+                showFilters ? Icons.tune_rounded : Icons.tune_outlined,
+                size: 20,
+                color: _DashTheme.primary,
               ),
             ),
           ),
@@ -593,83 +623,75 @@ class _ProfDashPageState extends State<ProfDashPage> {
   }
 }
 
-// ─────────────────────────────────────────────
-//  FILTER BAR WIDGET
-// ─────────────────────────────────────────────
-
-class _FilterBar extends StatelessWidget {
-  final bool visible;
+class _StatusFilters extends StatelessWidget {
   final String selectedStatus;
   final ValueChanged<String> onStatusChanged;
 
-  const _FilterBar({
-    required this.visible,
+  const _StatusFilters({
     required this.selectedStatus,
     required this.onStatusChanged,
   });
 
-  static const _options = ['All', 'Active', 'Upcoming', 'Completed'];
-
   @override
   Widget build(BuildContext context) {
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeInOut,
-      child: visible
-          ? Container(
-              color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    const options = ['All', 'Active', 'Upcoming', 'Completed'];
+
+    return SizedBox(
+      height: 42,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: options.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (_, index) {
+          final option = options[index];
+          final isSelected = option == selectedStatus;
+
+          return InkWell(
+            onTap: () => onStatusChanged(option),
+            borderRadius: BorderRadius.circular(12),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: isSelected ? _DashTheme.primary : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isSelected ? _DashTheme.primary : _DashTheme.border,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // TODO: add a TextField search bar here later
-                  const Text(
-                    'Filter by status',
+                  if (isSelected)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 6),
+                      child: Icon(
+                        Icons.check_rounded,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  Text(
+                    option,
                     style: TextStyle(
                       fontSize: 12,
-                      color: _AppColors.textSecondary,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: isSelected
+                          ? FontWeight.w700
+                          : FontWeight.w600,
+                      color: isSelected
+                          ? Colors.white
+                          : _DashTheme.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: _options.map((opt) {
-                        final selected = opt == selectedStatus;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ChoiceChip(
-                            label: Text(opt),
-                            selected: selected,
-                            onSelected: (_) => onStatusChanged(opt),
-                            selectedColor: _AppColors.primary,
-                            labelStyle: TextStyle(
-                              color: selected
-                                  ? Colors.white
-                                  : _AppColors.textSecondary,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 13,
-                            ),
-                            backgroundColor: _AppColors.surface,
-                            side: const BorderSide(color: _AppColors.divider),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                  const Divider(height: 1, color: _AppColors.divider),
                 ],
               ),
-            )
-          : const SizedBox.shrink(),
+            ),
+          );
+        },
+      ),
     );
   }
 }
-
-// ─────────────────────────────────────────────
-//  SESSION CARD WIDGET
-// ─────────────────────────────────────────────
 
 class _SessionCard extends StatefulWidget {
   final Session session;
@@ -689,30 +711,27 @@ class _SessionCard extends StatefulWidget {
 }
 
 class _SessionCardState extends State<_SessionCard> {
-  // Expand/collapse – space reserved for future detail rows
   bool _expanded = false;
-
-  // ── Status styling helpers ────────────────────
 
   Color get _statusBg {
     switch (widget.session.status) {
       case SessionStatus.active:
-        return _AppColors.activeBg;
+        return _DashTheme.successSoft;
       case SessionStatus.upcoming:
-        return _AppColors.upcomingBg;
+        return _DashTheme.warningSoft;
       case SessionStatus.completed:
-        return _AppColors.completedBg;
+        return _DashTheme.neutralSoft;
     }
   }
 
-  Color get _statusFg {
+  Color get _statusColor {
     switch (widget.session.status) {
       case SessionStatus.active:
-        return _AppColors.activeGreen;
+        return _DashTheme.success;
       case SessionStatus.upcoming:
-        return _AppColors.upcomingBlue;
+        return _DashTheme.warning;
       case SessionStatus.completed:
-        return _AppColors.completedGrey;
+        return _DashTheme.neutral;
     }
   }
 
@@ -734,123 +753,131 @@ class _SessionCardState extends State<_SessionCard> {
       case SessionStatus.upcoming:
         return Icons.schedule_rounded;
       case SessionStatus.completed:
-        return Icons.check_circle_outline_rounded;
+        return Icons.check_circle_rounded;
     }
   }
 
-  // ── Attendance bar color ──────────────────────
+  double get _attendanceRatio {
+    final total = widget.session.totalStudents;
+    if (total == 0) {
+      return 0;
+    }
+    return widget.session.attendance / total;
+  }
 
-  Color _attendanceColor(double ratio) {
-    if (ratio >= 0.75) return _AppColors.attendanceHigh;
-    if (ratio >= 0.50) return _AppColors.attendanceMedium;
-    return _AppColors.attendanceLow;
+  Color get _attendanceColor {
+    if (_attendanceRatio >= 0.75) {
+      return _DashTheme.success;
+    }
+    if (_attendanceRatio >= 0.5) {
+      return _DashTheme.warning;
+    }
+    return _DashTheme.danger;
   }
 
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
-    final attendanceRatio = session.totalStudents > 0
-        ? session.attendance / session.totalStudents
-        : 0.0;
+    final hasDescription =
+        session.description != null && session.description!.trim().isNotEmpty;
 
-    return GestureDetector(
-      // Long-press hint for future edit action
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => SessionDetailsPage(sessionId: session.id),
-          ),
-        );
-      },
-      onLongPress: () {
-        // TODO: show edit option
-        debugPrint('LONG-PRESS edit session id=${session.id}');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Edit session – coming soon'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      },
-      child: Card(
-        margin: const EdgeInsets.only(bottom: 14),
-        elevation: 2,
-        shadowColor: Colors.black12,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        color: _AppColors.cardBg,
-        child: Padding(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SessionDetailsPage(sessionId: session.id),
+            ),
+          );
+        },
+        child: Container(
           padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _DashTheme.card,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _DashTheme.border),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0D122849),
+                blurRadius: 14,
+                offset: Offset(0, 6),
+              ),
+            ],
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Header row: course + status badge ──
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Course icon
                   Container(
-                    width: 44,
-                    height: 44,
+                    width: 46,
+                    height: 46,
                     decoration: BoxDecoration(
-                      color: _AppColors.primaryLight,
-                      borderRadius: BorderRadius.circular(12),
+                      color: _DashTheme.primarySoft,
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Icon(
-                      Icons.menu_book_rounded,
-                      color: _AppColors.primary,
+                      Icons.event_note_rounded,
+                      color: _DashTheme.primary,
                       size: 22,
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // Course title + code
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           session.courseTitle,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color: _AppColors.textPrimary,
-                          ),
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: _DashTheme.textPrimary,
+                            height: 1.1,
+                          ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 3),
                         Text(
                           session.courseCode,
                           style: const TextStyle(
                             fontSize: 12,
-                            color: _AppColors.textSecondary,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
+                            color: _DashTheme.textSecondary,
                           ),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // Status badge
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
-                      vertical: 4,
+                      vertical: 5,
                     ),
                     decoration: BoxDecoration(
                       color: _statusBg,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(
+                        color: _statusColor.withValues(alpha: 0.2),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(_statusIcon, size: 11, color: _statusFg),
+                        Icon(_statusIcon, size: 12, color: _statusColor),
                         const SizedBox(width: 4),
                         Text(
                           _statusLabel,
                           style: TextStyle(
-                            color: _statusFg,
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
+                            color: _statusColor,
                           ),
                         ),
                       ],
@@ -858,144 +885,197 @@ class _SessionCardState extends State<_SessionCard> {
                   ),
                 ],
               ),
-
-              const SizedBox(height: 14),
-              const Divider(height: 1, color: _AppColors.divider),
-              const SizedBox(height: 12),
-
-              // ── Info row: date, time, location ──────
+              const SizedBox(height: 13),
               Wrap(
-                spacing: 16,
-                runSpacing: 6,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  _InfoChip(
+                  _MetricChip(
                     icon: Icons.calendar_today_rounded,
-                    label: humanReadableDate(session.startTime),
+                    text: humanReadableDate(session.startTime),
+                    color: _DashTheme.primary,
+                    bg: _DashTheme.primarySoft,
                   ),
-                  _InfoChip(
+                  _MetricChip(
                     icon: Icons.schedule_rounded,
-                    label:
-                        '${formatTime(session.startTime)} – ${formatTime(session.endTime)}',
+                    text:
+                        '${formatTime(session.startTime)} - ${formatTime(session.endTime)}',
+                    color: _DashTheme.textSecondary,
+                    bg: _DashTheme.surfaceSoft,
                   ),
-                  _InfoChip(
-                    icon: Icons.location_on_outlined,
-                    label: session.salle,
+                  _MetricChip(
+                    icon: Icons.meeting_room_outlined,
+                    text: session.salle,
+                    color: _DashTheme.textSecondary,
+                    bg: _DashTheme.surfaceSoft,
                   ),
                 ],
               ),
-
-              const SizedBox(height: 14),
-
-              // ── Attendance section ───────────────────
-              Row(
-                children: [
-                  const Icon(
-                    Icons.people_outline_rounded,
-                    size: 15,
-                    color: _AppColors.textSecondary,
+              if (hasDescription) ...[
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 11,
+                    vertical: 9,
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${session.attendance}/${session.totalStudents} present',
+                  decoration: BoxDecoration(
+                    color: _DashTheme.surfaceSoft,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _DashTheme.border),
+                  ),
+                  child: Text(
+                    session.description!,
                     style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: _AppColors.textPrimary,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '${(attendanceRatio * 100).toStringAsFixed(0)}%',
-                    style: TextStyle(
                       fontSize: 12,
-                      color: _attendanceColor(attendanceRatio),
-                      fontWeight: FontWeight.bold,
+                      color: _DashTheme.textSecondary,
+                      height: 1.35,
                     ),
                   ),
-                ],
+                ),
+              ],
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.fromLTRB(11, 10, 11, 10),
+                decoration: BoxDecoration(
+                  color: _DashTheme.surfaceSoft,
+                  borderRadius: BorderRadius.circular(13),
+                  border: Border.all(color: _DashTheme.border),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.people_alt_outlined,
+                          size: 16,
+                          color: _DashTheme.textSecondary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${session.attendance}/${session.totalStudents} present',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: _DashTheme.textPrimary,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '${(_attendanceRatio * 100).toStringAsFixed(0)}%',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: _attendanceColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 7),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: _attendanceRatio,
+                        minHeight: 7,
+                        backgroundColor: _DashTheme.border,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          _attendanceColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 6),
-              // Attendance progress bar
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: attendanceRatio,
-                  minHeight: 6,
-                  backgroundColor: _AppColors.divider,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    _attendanceColor(attendanceRatio),
+              const SizedBox(height: 10),
+              InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => setState(() => _expanded = !_expanded),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 4,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _expanded
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        size: 18,
+                        color: _DashTheme.textSecondary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _expanded ? 'Hide details' : 'Show details',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: _DashTheme.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-
-              // ── Expandable detail area (future use) ─
               AnimatedSize(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeInOut,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
                 child: _expanded
                     ? Padding(
-                        padding: const EdgeInsets.only(top: 12),
+                        padding: const EdgeInsets.only(top: 8),
                         child: Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: _AppColors.surface,
-                            borderRadius: BorderRadius.circular(10),
+                            color: _DashTheme.surfaceSoft,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: _DashTheme.border),
                           ),
-                          child: const Text(
-                            // TODO: populate with GPS coords, session ID, QR token
-                            'Additional details will appear here.\n'
-                            'GPS coordinates · Session ID · QR token validity',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _AppColors.textSecondary,
-                            ),
+                          child: Column(
+                            children: [
+                              _DetailRow(
+                                label: 'Session ID',
+                                value: '#${session.id}',
+                              ),
+                              const SizedBox(height: 6),
+                              _DetailRow(
+                                label: 'Date',
+                                value: humanReadableDate(session.startTime),
+                              ),
+                              const SizedBox(height: 6),
+                              _DetailRow(label: 'Status', value: _statusLabel),
+                            ],
                           ),
                         ),
                       )
                     : const SizedBox.shrink(),
               ),
-
               const SizedBox(height: 12),
-              const Divider(height: 1, color: _AppColors.divider),
-              const SizedBox(height: 4),
-
-              // ── Action buttons row ───────────────────
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  // Expand/collapse toggle
-                  _ActionButton(
-                    icon: _expanded
-                        ? Icons.keyboard_arrow_up_rounded
-                        : Icons.keyboard_arrow_down_rounded,
-                    label: _expanded ? 'Less' : 'More',
-                    color: _AppColors.textSecondary,
-                    onTap: () => setState(() => _expanded = !_expanded),
-                  ),
-                  const Spacer(),
-                  // QR Code button (only visible when not completed)
-                  if (widget.session.status != SessionStatus.completed)
+                  if (session.status != SessionStatus.completed)
                     _ActionButton(
-                      icon: Icons.qr_code_rounded,
+                      icon: Icons.qr_code_2_rounded,
                       label: 'QR Code',
-                      color: _AppColors.primary,
+                      color: _DashTheme.primary,
+                      bg: _DashTheme.primarySoft,
                       onTap: widget.onQrTap,
                     ),
-                  if (widget.session.status != SessionStatus.completed)
-                    const SizedBox(width: 8),
-                  // View Attendance button
                   _ActionButton(
                     icon: Icons.bar_chart_rounded,
                     label: 'Attendance',
-                    color: _AppColors.activeGreen,
+                    color: _DashTheme.success,
+                    bg: _DashTheme.successSoft,
                     onTap: widget.onAttendanceTap,
                   ),
-                  const SizedBox(width: 8),
-                  // Delete button
                   _ActionButton(
                     icon: Icons.delete_outline_rounded,
                     label: 'Delete',
-                    color: Colors.red,
+                    color: _DashTheme.danger,
+                    bg: _DashTheme.dangerSoft,
                     onTap: widget.onDeleteTap,
                   ),
                 ],
@@ -1008,48 +1088,58 @@ class _SessionCardState extends State<_SessionCard> {
   }
 }
 
-// ─────────────────────────────────────────────
-//  SMALL REUSABLE WIDGETS
-// ─────────────────────────────────────────────
-
-/// A small labelled icon used for date / time / location
-class _InfoChip extends StatelessWidget {
+class _MetricChip extends StatelessWidget {
   final IconData icon;
-  final String label;
+  final String text;
+  final Color color;
+  final Color bg;
 
-  const _InfoChip({required this.icon, required this.label});
+  const _MetricChip({
+    required this.icon,
+    required this.text,
+    required this.color,
+    required this.bg,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 13, color: _AppColors.textSecondary),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            color: _AppColors.textSecondary,
-            fontWeight: FontWeight.w500,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-/// A compact text+icon action button used in the card footer
 class _ActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
+  final Color bg;
   final VoidCallback onTap;
 
   const _ActionButton({
     required this.icon,
     required this.label,
     required this.color,
+    required this.bg,
     required this.onTap,
   });
 
@@ -1057,20 +1147,24 @@ class _ActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      borderRadius: BorderRadius.circular(11),
+      child: Ink(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(11),
+        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 15, color: color),
-            const SizedBox(width: 4),
+            const SizedBox(width: 5),
             Text(
               label,
               style: TextStyle(
                 fontSize: 12,
+                fontWeight: FontWeight.w700,
                 color: color,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -1080,63 +1174,154 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-//  EMPTY STATE WIDGET
-// ─────────────────────────────────────────────
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final String value;
 
-class _EmptyState extends StatelessWidget {
-  final VoidCallback onCreateTap;
-
-  const _EmptyState({required this.onCreateTap});
+  const _DetailRow({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: _AppColors.primaryLight,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.event_note_rounded,
-                size: 52,
-                color: _AppColors.primary,
-              ),
+    return Row(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: _DashTheme.textSecondary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 12,
+            color: _DashTheme.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LoadingState extends StatelessWidget {
+  const _LoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 48),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _DashTheme.border),
+      ),
+      child: const Column(
+        children: [
+          CircularProgressIndicator(color: _DashTheme.primary),
+          SizedBox(height: 12),
+          Text(
+            'Loading sessions...',
+            style: TextStyle(
+              color: _DashTheme.textSecondary,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'No sessions yet',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: _AppColors.textPrimary,
-              ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  final bool hasFilters;
+  final VoidCallback onCreateTap;
+  final VoidCallback onResetFilters;
+
+  const _EmptyState({
+    required this.hasFilters,
+    required this.onCreateTap,
+    required this.onResetFilters,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(22, 28, 22, 28),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _DashTheme.border),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 84,
+            height: 84,
+            decoration: const BoxDecoration(
+              color: _DashTheme.primarySoft,
+              shape: BoxShape.circle,
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Create your first session to start\ntracking attendance.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: _AppColors.textSecondary,
-                height: 1.5,
-              ),
+            child: const Icon(
+              Icons.event_note_rounded,
+              size: 42,
+              color: _DashTheme.primary,
             ),
-            const SizedBox(height: 28),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            hasFilters ? 'No sessions match filters' : 'No sessions found',
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: _DashTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            hasFilters
+                ? 'Try changing the status or search query.'
+                : 'Create your first session to start tracking attendance.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: _DashTheme.textSecondary,
+              fontSize: 14,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 20),
+          if (hasFilters)
+            FilledButton.icon(
+              onPressed: onResetFilters,
+              style: FilledButton.styleFrom(
+                backgroundColor: _DashTheme.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.restart_alt_rounded),
+              label: const Text(
+                'Reset Filters',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            )
+          else
             FilledButton.icon(
               onPressed: onCreateTap,
               style: FilledButton.styleFrom(
-                backgroundColor: _AppColors.primary,
+                backgroundColor: _DashTheme.primary,
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 14,
+                  horizontal: 18,
+                  vertical: 12,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -1144,26 +1329,82 @@ class _EmptyState extends StatelessWidget {
               ),
               icon: const Icon(Icons.add_rounded),
               label: const Text(
-                'Create First Session',
-                style: TextStyle(fontWeight: FontWeight.w600),
+                'Create Session',
+                style: TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────
-//  PAGINATION BAR WIDGET
-// ─────────────────────────────────────────────
+class _ErrorState extends StatelessWidget {
+  final String error;
+  final Future<void> Function() onRetry;
+
+  const _ErrorState({required this.error, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(22, 26, 22, 26),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _DashTheme.border),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.wifi_off_rounded,
+            size: 50,
+            color: _DashTheme.textSecondary,
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Could not load sessions',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: _DashTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            error,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: _DashTheme.textSecondary,
+              fontSize: 14,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: onRetry,
+            style: FilledButton.styleFrom(
+              backgroundColor: _DashTheme.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _PaginationBar extends StatelessWidget {
   final int currentPage;
   final int totalPages;
-  final VoidCallback onPrevious;
-  final VoidCallback onNext;
+  final Future<void> Function() onPrevious;
+  final Future<void> Function() onNext;
 
   const _PaginationBar({
     required this.currentPage,
@@ -1178,40 +1419,41 @@ class _PaginationBar extends StatelessWidget {
     final isLast = currentPage >= totalPages - 1;
 
     return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _DashTheme.border),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Previous button
           _PaginationButton(
             icon: Icons.chevron_left_rounded,
-            onTap: isFirst ? null : onPrevious,
             enabled: !isFirst,
+            onTap: isFirst ? null : onPrevious,
           ),
-          const SizedBox(width: 16),
-          // Page indicator
+          const SizedBox(width: 12),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
-              color: _AppColors.primaryLight,
+              color: _DashTheme.primarySoft,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               '${currentPage + 1} of $totalPages',
               style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: _AppColors.primary,
+                color: _DashTheme.primary,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
-          const SizedBox(width: 16),
-          // Next button
+          const SizedBox(width: 12),
           _PaginationButton(
             icon: Icons.chevron_right_rounded,
-            onTap: isLast ? null : onNext,
             enabled: !isLast,
+            onTap: isLast ? null : onNext,
           ),
         ],
       ),
@@ -1221,7 +1463,7 @@ class _PaginationBar extends StatelessWidget {
 
 class _PaginationButton extends StatelessWidget {
   final IconData icon;
-  final VoidCallback? onTap;
+  final Future<void> Function()? onTap;
   final bool enabled;
 
   const _PaginationButton({
@@ -1233,17 +1475,17 @@ class _PaginationButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: enabled ? _AppColors.primary : _AppColors.divider,
+      color: enabled ? _DashTheme.primary : _DashTheme.border,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
-        onTap: onTap,
         borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(6),
           child: Icon(
             icon,
             size: 20,
-            color: enabled ? Colors.white : _AppColors.textSecondary,
+            color: enabled ? Colors.white : _DashTheme.textSecondary,
           ),
         ),
       ),

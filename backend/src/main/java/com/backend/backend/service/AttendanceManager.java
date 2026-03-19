@@ -9,6 +9,7 @@ import com.backend.backend.dao.repositories.AttendanceRepository;
 import com.backend.backend.dao.repositories.SessionRepository;
 import com.backend.backend.dto.attendance.AttendanceResponseDTO;
 import com.backend.backend.dto.attendance.AttendanceScanRequestDTO;
+import com.backend.backend.service.Jwt.JwtService;
 
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class AttendanceManager implements AttendanceService {
@@ -28,6 +30,9 @@ public class AttendanceManager implements AttendanceService {
 
     @Autowired
     private UserService userService; // Service pour récupérer les informations de l'utilisateur
+
+    @Autowired
+    private JwtService jwtService;
 
     @Autowired
     ModelMapper modelMapper;
@@ -66,16 +71,49 @@ public class AttendanceManager implements AttendanceService {
             return response;
         }
 
-        Session session = sessionRepository.getSessionByQrCodeToken(request.getQrCodeToken());
+        if (!jwtService.validateToken(request.getQrCodeToken())) {
+            AttendanceResponseDTO response = new AttendanceResponseDTO();
+            response.setSuccess(false);
+            response.setMessage("QR invalide ou expiré.");
+            return response;
+        }
+
+        Map<String, Object> claims;
+        try {
+            claims = jwtService.extractClaims(request.getQrCodeToken());
+        } catch (Exception e) {
+            AttendanceResponseDTO response = new AttendanceResponseDTO();
+            response.setSuccess(false);
+            response.setMessage("QR invalide ou expiré.");
+            return response;
+        }
+
+        Object tokenType = claims.get("type");
+        if (!"attendance_qr".equals(tokenType)) {
+            AttendanceResponseDTO response = new AttendanceResponseDTO();
+            response.setSuccess(false);
+            response.setMessage("Type de QR invalide.");
+            return response;
+        }
+
+        Long sessionId = toLong(claims.get("sessionId"));
+        if (sessionId == null) {
+            AttendanceResponseDTO response = new AttendanceResponseDTO();
+            response.setSuccess(false);
+            response.setMessage("QR invalide: sessionId manquant.");
+            return response;
+        }
+
+        Session session = sessionRepository.findById(sessionId).orElse(null);
 
         // Vérifier si la session est active (en cours)
-        // if (session == null || session.getStartTime().isAfter(LocalDateTime.now())
-        //         || session.getEndTime().isBefore(LocalDateTime.now())) {
-        //     AttendanceResponseDTO response = new AttendanceResponseDTO();
-        //     response.setSuccess(false);
-        //     response.setMessage("Session non trouvée ou non active.");
-        //     return response;
-        // }
+        if (session == null || session.getStartTime().isAfter(LocalDateTime.now())
+                || session.getEndTime().isBefore(LocalDateTime.now())) {
+            AttendanceResponseDTO response = new AttendanceResponseDTO();
+            response.setSuccess(false);
+            response.setMessage("Session non trouvée ou non active.");
+            return response;
+        }
 
         boolean isWithinGeofence = isLocationValid();
         if (!isWithinGeofence) {
@@ -130,5 +168,19 @@ public class AttendanceManager implements AttendanceService {
     private boolean isLocationValid() {
         // TODO Auto-generated method stub
         return true;
+    }
+
+    private Long toLong(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value instanceof String str) {
+            try {
+                return Long.parseLong(str);
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 }

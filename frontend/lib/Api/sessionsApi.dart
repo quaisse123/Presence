@@ -32,10 +32,10 @@ Future<Map<String, dynamic>> fetchSessionDetails(int id) async {
   }
 }
 
-Future<String> fetchQrToken() async {
+Future<String> fetchQrToken({required int sessionId}) async {
   final token = await getValidAccessToken();
   final response = await http.get(
-    Uri.parse('${apiUrl}/jwt/generate-qr-token'),
+    Uri.parse('${apiUrl}/jwt/generate-qr-token?sessionId=$sessionId'),
     headers: {'Authorization': 'Bearer $token'},
   );
   if (response.statusCode == 200) {

@@ -4,6 +4,7 @@ package com.backend.backend.web.Jwt;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -12,7 +13,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
+import com.backend.backend.dao.entities.Session;
+import com.backend.backend.dao.repositories.SessionRepository;
 import com.backend.backend.service.Jwt.JwtService;
 
 @RestController
@@ -22,23 +26,28 @@ public class JwtController {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+    private SessionRepository sessionRepository;
+
     @Value("${jwt.access.duration}")
     private long jwtAccessDuration;
 
     @Value("${jwt.refresh.duration}")
     private long jwtRefreshDuration;
 
-    // get token
+    // Generate a short-lived QR token bound to one session.
     @GetMapping("/generate-qr-token")
-    public String generateQrToken() {
-        // claims Map example 
+    public String generateQrToken(@RequestParam Long sessionId) {
+        Session session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Session introuvable."));
+
         Map<String, Object> claims = Map.of(
-            "userId", 123,
-            "username", "john_doe",
-            "roles", new String[]{"USER", "ADMIN"}
+                "type", "attendance_qr",
+                "sessionId", session.getId()
         );
-        // expiration time example: 1 hour (3600000 ms)
-        String token = jwtService.generateToken(claims, 3600000 , "prof.email@gmail.com"); // 1 hour validity
+
+        // 600 seconds validity for dynamic QR rotation.
+        String token = jwtService.generateToken(claims, 600000, "session:" + session.getId());
         return token;
     }
 

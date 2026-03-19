@@ -37,8 +37,10 @@ dependencies:
   http: ^1.0.0
   salomon_bottom_bar: ^3.3.2
   qr_flutter: ^4.1.0
+  mobile_scanner: ^6.0.2
   shared_preferences: ^2.2.2
   get: ^4.6.6
+  jwt_decode: ^0.3.1
   
 dev_dependencies:
   flutter_test:

@@ -28,7 +28,15 @@ public class BackendApplication {
 			GroupRepository groupRepo
 	) {
 		return args -> {
+			boolean debugSessionReady = ensureAlwaysActiveDebugSession(userRepo, courseRepo, sessionRepo, groupRepo);
+			if (!debugSessionReady) {
+				System.out.println("[DataSeed] Session debug non creee pour l'instant (donnees minimales manquantes).");
+			}
+
 			if (userRepo.count() > 0) {
+				if (debugSessionReady) {
+					System.out.println("[DataSeed] Session debug active (mise a jour au demarrage).");
+				}
 				System.out.println("[DataSeed] Base déjà initialisée, injection ignorée.");
 				return;
 			}
@@ -349,6 +357,49 @@ public class BackendApplication {
 			System.out.println("  - " + courseRepo.count()     + " cours");
 			System.out.println("  - " + sessionRepo.count()    + " sessions (dont 1 en cours)");
 			System.out.println("  - " + attendanceRepo.count() + " présences enregistrées");
+
+			if (ensureAlwaysActiveDebugSession(userRepo, courseRepo, sessionRepo, groupRepo)) {
+				System.out.println("[DataSeed] Session debug active creee/mise a jour.");
+			}
 		};
+	}
+
+	private boolean ensureAlwaysActiveDebugSession(
+			UserRepository userRepo,
+			CourseRepository courseRepo,
+			SessionRepository sessionRepo,
+			GroupRepository groupRepo
+	) {
+		User professor = userRepo.findAll().stream()
+				.filter(user -> user.getRole() == Role.PROFESSOR)
+				.findFirst()
+				.orElse(null);
+
+		Course course = courseRepo.findAll().stream().findFirst().orElse(null);
+		Group group = groupRepo.findAll().stream().findFirst().orElse(null);
+
+		if (professor == null || course == null || group == null) {
+			return false;
+		}
+
+		Session debugSession = sessionRepo.findAll().stream()
+				.filter(session -> "QR-DEBUG-ACTIVE".equals(session.getQrCodeToken()))
+				.findFirst()
+				.orElse(new Session());
+
+		LocalDateTime now = LocalDateTime.now();
+		debugSession.setCourse(course);
+		debugSession.setProfessor(professor);
+		debugSession.setGroup(group);
+		debugSession.setStartTime(now.minusHours(1));
+		debugSession.setEndTime(now.plusHours(8));
+		debugSession.setQrCodeToken("QR-DEBUG-ACTIVE");
+		debugSession.setSalle("DEBUG-ROOM");
+		debugSession.setLatitude(36.7065);
+		debugSession.setLongitude(3.0786);
+		debugSession.setRadiusInMeters(50.0);
+
+		sessionRepo.save(debugSession);
+		return true;
 	}
 }

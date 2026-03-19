@@ -299,7 +299,7 @@ class _SessionDetailsPageState extends State<SessionDetailsPage> {
               tooltip: 'Show QR Code',
               onPressed: () {
                 // TODO: show QR code bottom sheet
-                showQrModal(context);
+                showQrModal(context, sessionId: widget.sessionId);
               },
               icon: const Icon(Icons.qr_code_rounded, color: _C.primary),
             ),

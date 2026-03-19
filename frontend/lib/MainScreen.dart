@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/Api/AuthApi.dart';
 import 'package:frontend/Header.dart';
-import 'package:frontend/pages/profDash.dart';
 import 'package:frontend/pages/coursesPage.dart';
-import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
-
-// ─────────────────────────────────────────────
-//  MAIN SCREEN — centralised navigation
-// ─────────────────────────────────────────────
+import 'package:frontend/pages/profDash.dart';
+import 'package:frontend/pages/studentScanTest.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -18,94 +15,112 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
-  static const _primary = Color(0xFF1A73E8);
-  static const _surface = Color.fromARGB(255, 0, 96, 192);
+  final List<Widget> _pages = const [
+    ProfDashPage(),
+    CoursesPage(),
+    ProfDashPage(),
+    ProfDashPage(),
+  ];
 
-  final List<Widget> _pages = [
-    const ProfDashPage(),
-    const CoursesPage(),
-    const ProfDashPage(), // TODO: replace with SearchPage
-    const ProfDashPage(), // TODO: replace with ProfilePage
+  final List<_NavItemData> _navItems = const [
+    _NavItemData(icon: Icons.event_note_rounded, label: 'Sessions'),
+    _NavItemData(icon: Icons.menu_book_rounded, label: 'Courses'),
+    _NavItemData(icon: Icons.search_rounded, label: 'Search'),
+    _NavItemData(icon: Icons.person_outline_rounded, label: 'Profile'),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF1F3F6),
       appBar: MainHeader(
-        userName: 'Quaisse',
-        subtitle: 'Welcome back',
+        userName: 'Hardeywealth',
+        subtitle: 'Good Morning,',
         onProfileTap: () {
-          // TODO: open profile
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const StudentScanTestPage()),
+          );
+          // logout();
         },
       ),
       body: _pages[_currentIndex],
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(0)),
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 6,
-              offset: Offset(0, -2),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-            child: SalomonBottomBar(
-              currentIndex: _currentIndex,
-              onTap: (i) => setState(() => _currentIndex = i),
-              itemPadding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 14,
-              ),
-              margin: const EdgeInsets.symmetric(horizontal: 6),
-              items: [
-                SalomonBottomBarItem(
-                  icon: const Icon(Icons.event, size: 22),
-                  title: const Text(
-                    "Sessions",
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
-                  selectedColor: const Color(0xFF1A73E8),
-                  unselectedColor: const Color(0xFF1A73E8).withOpacity(0.4),
-                ),
-                SalomonBottomBarItem(
-                  icon: const Icon(Icons.menu_book, size: 22),
-                  title: const Text(
-                    "Courses",
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
-                  selectedColor: const Color(0xFF1A73E8),
-                  unselectedColor: const Color(0xFF1A73E8).withOpacity(0.4),
-                ),
-                SalomonBottomBarItem(
-                  icon: const Icon(Icons.search_rounded, size: 22),
-                  title: const Text(
-                    "Search",
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
-                  selectedColor: const Color(0xFF1A73E8),
-                  unselectedColor: const Color(0xFF1A73E8).withOpacity(0.4),
-                ),
-                SalomonBottomBarItem(
-                  icon: const Icon(Icons.person_outline_rounded, size: 22),
-                  title: const Text(
-                    "Profile",
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
-                  selectedColor: const Color(0xFF1A73E8),
-                  unselectedColor: const Color(0xFF1A73E8).withOpacity(0.4),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFE8ECF3)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x12000000),
+                  blurRadius: 22,
+                  offset: Offset(0, 10),
                 ),
               ],
+            ),
+            child: Row(
+              children: List.generate(_navItems.length, (index) {
+                final item = _navItems[index];
+                final isSelected = _currentIndex == index;
+
+                return Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => setState(() => _currentIndex = index),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOut,
+                      padding: const EdgeInsets.symmetric(vertical: 7),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? const Color(0xFFEAF0FE)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            item.icon,
+                            size: 20,
+                            color: isSelected
+                                ? const Color(0xFF1C4FBF)
+                                : const Color(0xFF98A3B3),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            item.label,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: isSelected
+                                  ? const Color(0xFF1C4FBF)
+                                  : const Color(0xFF98A3B3),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
             ),
           ),
         ),
       ),
     );
   }
+}
+
+class _NavItemData {
+  final IconData icon;
+  final String label;
+
+  const _NavItemData({required this.icon, required this.label});
 }
