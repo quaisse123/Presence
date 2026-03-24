@@ -11,4 +11,12 @@ public class AttendanceSummaryDTO {
     private AttendanceStatus status;
     private Long studentId;
     private Long sessionId;
+
+    // Champs utiles pour le dashboard étudiant
+    private String courseTitle;
+    private String courseCode;
+    private String salle;
+    private LocalDateTime sessionStartTime;
+    private LocalDateTime sessionEndTime;
+
 }

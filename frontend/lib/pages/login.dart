@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/Api/AuthApi.dart';
 import 'package:frontend/Api/JwtService.dart';
 import 'package:frontend/MainScreen.dart';
+import 'package:frontend/config/MainRedirection.dart';
 import 'package:frontend/pages/profDash.dart';
 import 'package:http/http.dart';
 
@@ -55,9 +56,12 @@ class _LoginPageState extends State<LoginPage> {
       try {
         tokens = await login(_emailController.text, _passwordController.text);
         await saveTokens(tokens);
+        String? role = await getUserRole();
+        Widget page = getPageForRole(role);
+
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const MainScreen()),
+          MaterialPageRoute(builder: (context) => page),
         );
       } catch (e) {
         setState(() => _isLoading = false);

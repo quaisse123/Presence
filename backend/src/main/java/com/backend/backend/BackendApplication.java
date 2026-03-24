@@ -390,7 +390,7 @@ public class BackendApplication {
 		LocalDateTime now = LocalDateTime.now();
 		debugSession.setCourse(course);
 		debugSession.setProfessor(professor);
-		debugSession.setGroup(group);
+		debugSession.setGroup(groupRepo.findById(6L).orElse(group)); // API-2 B ou groupe par défaut
 		debugSession.setStartTime(now.minusHours(1));
 		debugSession.setEndTime(now.plusHours(8));
 		debugSession.setQrCodeToken("QR-DEBUG-ACTIVE");

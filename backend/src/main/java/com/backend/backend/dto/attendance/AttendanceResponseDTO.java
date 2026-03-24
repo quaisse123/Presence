@@ -22,6 +22,16 @@ public class AttendanceResponseDTO {
     private Long studentId;
     private Long sessionId;
 
+    // Useful post-scan summary fields for student UI
+    private String studentFirstName;
+    private String studentEmail;
+    private String sessionTitle;
+    private String courseCode;
+    private String professorName;
+    private String salle;
+    private LocalDateTime sessionStartTime;
+    private LocalDateTime sessionEndTime;
+
     private Boolean success; // Indique si la validation de présence a réussi
     private String message; // Message d'erreur ou de succès pour le client
 }

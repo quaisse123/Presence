@@ -1,20 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/Api/AuthApi.dart';
 import 'package:frontend/MainScreen.dart';
+import 'package:frontend/config/MainRedirection.dart';
 import 'package:get/get.dart';
 import 'pages/login.dart';
 import 'pages/profDash.dart';
+import 'pages/studentDash.dart';
 import 'pages/studentScanTest.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final loggedIn = await isUserLoggedIn();
-  runApp(MyApp(isLoggedIn: loggedIn));
+  runApp(
+    MyApp(
+      isLoggedIn: loggedIn,
+      userRole: loggedIn ? await getUserRole() : null,
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
   final bool isLoggedIn;
-  const MyApp({super.key, required this.isLoggedIn});
+  final String? userRole;
+  const MyApp({super.key, required this.isLoggedIn, required this.userRole});
 
   @override
   Widget build(BuildContext context) {
@@ -26,11 +34,12 @@ class MyApp extends StatelessWidget {
         colorSchemeSeed: const Color(0xFF1A73E8),
         fontFamily: 'Roboto',
       ),
-      initialRoute: isLoggedIn ? '/main' : '/login',
+      initialRoute: !isLoggedIn ? '/login' : '/home',
       getPages: [
         GetPage(name: '/login', page: () => const LoginPage()),
         GetPage(name: '/profDash', page: () => const ProfDashPage()),
-        GetPage(name: '/main', page: () => const MainScreen()),
+        GetPage(name: '/home', page: () => getPageForRole(userRole)),
+        GetPage(name: '/studentDash', page: () => const StudentDashPage()),
         GetPage(
           name: '/studentScanTest',
           page: () => const StudentScanTestPage(),

@@ -37,10 +37,10 @@ class _MainScreenState extends State<MainScreen> {
         userName: 'Hardeywealth',
         subtitle: 'Good Morning,',
         onProfileTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const StudentScanTestPage()),
-          );
-          // logout();
+          // Navigator.of(context).push(
+          //   MaterialPageRoute(builder: (_) => const StudentScanTestPage()),
+          // );
+          logout();
         },
       ),
       body: _pages[_currentIndex],

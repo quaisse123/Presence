@@ -35,6 +35,9 @@ public class JwtController {
     @Value("${jwt.refresh.duration}")
     private long jwtRefreshDuration;
 
+    @Value("${jwt.qr.duration}")
+    private long jwtQrDuration;
+
     // Generate a short-lived QR token bound to one session.
     @GetMapping("/generate-qr-token")
     public String generateQrToken(@RequestParam Long sessionId) {
@@ -46,8 +49,7 @@ public class JwtController {
                 "sessionId", session.getId()
         );
 
-        // 600 seconds validity for dynamic QR rotation.
-        String token = jwtService.generateToken(claims, 600000, "session:" + session.getId());
+        String token = jwtService.generateToken(claims, jwtQrDuration, "session:" + session.getId());
         return token;
     }
 

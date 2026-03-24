@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.backend.backend.dao.entities.User;
@@ -19,6 +20,12 @@ public class AuthManager implements AuthService {
 
     @Autowired
     private JwtService jwtService ;
+
+    @Value("${jwt.access.duration}")
+    private long jwtAccessDuration;
+
+    @Value("${jwt.refresh.duration}")
+    private long jwtRefreshDuration;
 
 
     @Override
@@ -39,18 +46,8 @@ public class AuthManager implements AuthService {
             claims.put("groupId", user.getGroup().getId());
         }
 
-        // Duration 15 min
-        final long JWT_ACCESS_DURATION = 15 * 60 * 1000;
-        // Duration 7 days
-        final long JWT_REFRESH_DURATION = 7 * 24 * 60 * 60 * 1000;
-
-        // // 1 min acess
-        // final long JWT_ACCESS_DURATION = 1 * 60 * 1000;
-        // // 5 min refresh  
-        // final long JWT_REFRESH_DURATION = 2 * 60 * 1000;
-
-        String accessToken = jwtService.generateToken(claims, JWT_ACCESS_DURATION , user.getEmail());
-        String refreshToken = jwtService.generateToken(claims, JWT_REFRESH_DURATION , user.getEmail());
+        String accessToken = jwtService.generateToken(claims, jwtAccessDuration, user.getEmail());
+        String refreshToken = jwtService.generateToken(claims, jwtRefreshDuration, user.getEmail());
 
         Map<String, String> tokens = new HashMap<>();
         tokens.put("accessToken", accessToken);
