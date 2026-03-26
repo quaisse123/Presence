@@ -1,0 +1,65 @@
+Objectif:
+Tu dois generer un prompt de haute qualite pour un autre IA design (stitch) afin de concevoir une interface UI complete pour une page "Student Dashboard" d'une application de gestion de presence universitaire.
+
+Important:
+- Ne fixe pas de direction visuelle stricte.
+- Laisse une grande liberte creative sur le style (layout, typographie, palette, composants, micro-interactions).
+- Priorise une UI moderne, claire, mobile-first, avec bonne lisibilite et hierarchy d'information.
+- Le resultat attendu de ta part est: un prompt final pret a etre utilise pour demander la generation de l'UI.
+
+Fonctionnalites que l'UI doit couvrir:
+1) En-tete Dashboard
+- Titre principal de la page et action logout.
+
+2) Bloc "Session Progress"
+- Affiche la periode active (Current Week / Current Month / All Time).
+- Affiche un taux de presence en pourcentage.
+- Inclut une progress bar correspondant au taux.
+- Contient un bouton principal "Scan session QR".
+
+3) Bloc "Current Session" (si une session en cours existe)
+- Affiche un indicateur LIVE.
+- L'indicateur LIVE est vert si l'etudiant a deja scanne, rouge sinon.
+- Affiche: nom du module, professeur, salle, date/heure debut-fin.
+- Affiche un badge "Scanned" ou "Not scanned yet".
+
+4) Bloc statistiques rapides
+- Carte Attended: format "attendedSessions / totalSessions".
+- Carte Missed sessions: valeur numerique.
+
+5) Bloc filtres + recherche
+- Champ de recherche (course code, title, room).
+- Bouton icone filtre a cote de la recherche pour afficher/masquer les filtres.
+- Quand visible, filtres separent en deux lignes:
+  - Ligne Range: Current Week / Current Month / All Time.
+  - Ligne Status: All / Present / Late / Absent.
+- Filtres visuellement soft et coherents.
+
+6) Section "Session history"
+- Titre avec compteur total affiche.
+- Liste de cartes sessions triees du plus recent au plus ancien.
+- Chaque carte affiche:
+  - Nom du module
+  - Code module, professeur, salle
+  - Badge attended/not attended
+  - Statut detaille (Present/Late/Absent)
+  - Date + heure de session
+  - Heure de scan ou "Not scanned"
+  - Identifiant session
+- Si une carte correspond a une session en cours, appliquer un style dedie LIVE.
+
+7) Etats de page
+- Loading state
+- Error state
+- Empty state (aucune session)
+- Pull-to-refresh
+
+8) Contraintes UX
+- L'interface doit etre responsive mobile et desktop.
+- Prioriser la clarte et les actions principales.
+- Eviter la surcharge visuelle.
+- Conserver une coherence visuelle globale.
+
+Sortie attendue de ta part:
+- Redige uniquement le prompt final a donner au LLM generateur d'UI.
+- Le prompt final doit etre actionnable, detaille sur les besoins fonctionnels ci-dessus, mais laisser la liberte de design.

@@ -124,6 +124,13 @@ public class AttendanceManager implements AttendanceService {
             return buildErrorResponse("Vous n'etes pas inscrit dans le groupe correspondant a ce QR code."); // Sécurité supplémentaire pour éviter les scans croisés entre groupes
         }
 
+        // Etudiant deja marqué présent pour cette session ?
+        List<Attendance> existingAttendances = attendanceRepository.findByStudent_IdAndSession_IdIn(student.getId(), List.of(session.getId()));
+        if (existingAttendances != null && !existingAttendances.isEmpty()) {
+            return buildErrorResponse("Vous avez déjà scanné votre présence pour cette session.");
+        }
+
+
         Attendance attendance = new Attendance();
         attendance.setScanTime(request.getScanTime() != null ? request.getScanTime() : LocalDateTime.now());
         attendance.setStatus(status);

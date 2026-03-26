@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:frontend/Api/AuthApi.dart';
 import 'package:frontend/Api/QrCodeApi.dart';
+import 'package:frontend/Api/sessionsApi.dart';
 import 'package:frontend/pages/studentScanTest.dart';
 
 enum StudentAttendanceStatus { present, late, absent }
@@ -59,29 +60,31 @@ extension StudentHistoryRangeX on StudentHistoryRange {
   String get label {
     switch (this) {
       case StudentHistoryRange.week:
-        return 'This Week';
+        return 'Current Week';
       case StudentHistoryRange.month:
-        return 'Last 30 Days';
+        return 'Current Month';
       case StudentHistoryRange.all:
-        return 'All';
+        return 'All Time';
     }
   }
 }
 
-class StudentAttendanceRecord {
+class StudentSessionRecord {
   final int sessionId;
   final String courseTitle;
   final String courseCode;
+  final String professorName;
   final String salle;
   final DateTime sessionStart;
   final DateTime sessionEnd;
   final DateTime? scanTime;
   final StudentAttendanceStatus status;
 
-  const StudentAttendanceRecord({
+  const StudentSessionRecord({
     required this.sessionId,
     required this.courseTitle,
     required this.courseCode,
+    required this.professorName,
     required this.salle,
     required this.sessionStart,
     required this.sessionEnd,
@@ -93,7 +96,7 @@ class StudentAttendanceRecord {
 }
 
 class _StudentTheme {
-  static const pageBg = Color(0xFFF1F3F6);
+  static const pageBg = Color(0xFFF3F5F9);
   static const card = Colors.white;
   static const primary = Color(0xFF1C4FBF);
   static const primaryDeep = Color(0xFF163B9A);
@@ -113,7 +116,7 @@ class StudentDashPage extends StatefulWidget {
 }
 
 class _StudentDashPageState extends State<StudentDashPage> {
-  List<StudentAttendanceRecord> _allRecords = [];
+  List<StudentSessionRecord> _allRecords = [];
   int _totalSessions = 0;
   int _attendedSessions = 0;
   int _missedSessions = 0;
@@ -125,7 +128,8 @@ class _StudentDashPageState extends State<StudentDashPage> {
 
   int? _loggedUserId;
   bool _loadingUser = true;
-  bool _loadingAttendances = true;
+  bool _loadingHistory = true;
+  bool _showFilters = false;
   String? _loadingError;
 
   @override
@@ -137,11 +141,11 @@ class _StudentDashPageState extends State<StudentDashPage> {
     _searchController.addListener(() {
       _searchDebounce?.cancel();
       _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-        _loadAttendances();
+        _loadSessionHistory();
       });
     });
 
-    _loadAttendances();
+    _loadSessionHistory();
   }
 
   @override
@@ -151,9 +155,9 @@ class _StudentDashPageState extends State<StudentDashPage> {
     super.dispose();
   }
 
-  Future<void> _loadAttendances() async {
+  Future<void> _loadSessionHistory() async {
     setState(() {
-      _loadingAttendances = true;
+      _loadingHistory = true;
       _loadingError = null;
     });
 
@@ -171,7 +175,7 @@ class _StudentDashPageState extends State<StudentDashPage> {
       // Filtre recherche envoye au backend.
       final search = _searchController.text.trim();
 
-      final data = await fetchMyAttendances(
+      final data = await fetchMySessionHistory(
         period: period,
         status: status,
         search: search.isEmpty ? null : search,
@@ -196,15 +200,15 @@ class _StudentDashPageState extends State<StudentDashPage> {
         _totalSessions = totalSessions;
         _attendedSessions = attendedSessions;
         _missedSessions = missedSessions;
-        _loadingAttendances = false;
+        _loadingHistory = false;
       });
     } catch (e) {
       if (!mounted) {
         return;
       }
       setState(() {
-        _loadingAttendances = false;
-        _loadingError = 'Impossible de charger les presences.';
+        _loadingHistory = false;
+        _loadingError = 'Impossible de charger les sessions.';
         _allRecords = [];
         _totalSessions = 0;
         _attendedSessions = 0;
@@ -213,7 +217,7 @@ class _StudentDashPageState extends State<StudentDashPage> {
     }
   }
 
-  StudentAttendanceRecord _fromApi(Map<String, dynamic> json) {
+  StudentSessionRecord _fromApi(Map<String, dynamic> json) {
     final rawStatus = (json['status'] ?? '').toString().toUpperCase();
     final status = switch (rawStatus) {
       'PRESENT' => StudentAttendanceStatus.present,
@@ -224,10 +228,11 @@ class _StudentDashPageState extends State<StudentDashPage> {
     final start = DateTime.parse(json['sessionStartTime'] as String);
     final end = DateTime.parse(json['sessionEndTime'] as String);
 
-    return StudentAttendanceRecord(
+    return StudentSessionRecord(
       sessionId: (json['sessionId'] as num).toInt(),
       courseTitle: (json['courseTitle'] ?? 'Session').toString(),
       courseCode: (json['courseCode'] ?? '-').toString(),
+      professorName: (json['professorName'] ?? 'Professor').toString(),
       salle: (json['salle'] ?? '-').toString(),
       sessionStart: start,
       sessionEnd: end,
@@ -264,45 +269,11 @@ class _StudentDashPageState extends State<StudentDashPage> {
     ).push(MaterialPageRoute(builder: (_) => const StudentScanTestPage()));
   }
 
-  DateTime _startOfWeek(DateTime date) {
-    final day = DateTime(date.year, date.month, date.day);
-    return day.subtract(Duration(days: day.weekday - 1));
-  }
-
-  DateTime _at(
-    DateTime baseWeekStart,
-    int dayOffset,
-    int hour, [
-    int minute = 0,
-  ]) {
-    final day = baseWeekStart.add(Duration(days: dayOffset));
-    return DateTime(day.year, day.month, day.day, hour, minute);
-  }
-
-  bool _isInCurrentWeek(DateTime date) {
-    final start = _startOfWeek(DateTime.now());
-    final end = start.add(const Duration(days: 7));
-    return !date.isBefore(start) && date.isBefore(end);
-  }
-
-  List<StudentAttendanceRecord> get _filteredRecords {
+  List<StudentSessionRecord> get _filteredRecords {
     final sorted = [..._allRecords];
     sorted.sort((a, b) => b.sessionStart.compareTo(a.sessionStart));
     return sorted;
   }
-
-  List<StudentAttendanceRecord> get _currentWeekRecords => _allRecords
-      .where((record) => _isInCurrentWeek(record.sessionStart))
-      .toList();
-
-  int get _weekAttended =>
-      _currentWeekRecords.where((record) => record.attended).length;
-
-  int get _weekTotal => _currentWeekRecords.length;
-
-  int get _weekMissed => _currentWeekRecords
-      .where((record) => record.status == StudentAttendanceStatus.absent)
-      .length;
 
   double get _weekRatio {
     if (_totalSessions == 0) {
@@ -311,22 +282,28 @@ class _StudentDashPageState extends State<StudentDashPage> {
     return _attendedSessions / _totalSessions;
   }
 
-  int get _filteredMissed => _filteredRecords
-      .where((record) => record.status == StudentAttendanceStatus.absent)
-      .length;
+  int get _attendancePercent => (_weekRatio * 100).round().clamp(0, 100);
 
-  int get _filteredLate => _filteredRecords
-      .where((record) => record.status == StudentAttendanceStatus.late)
-      .length;
+  StudentSessionRecord? get _currentSession {
+    final now = DateTime.now();
+    for (final record in _filteredRecords) {
+      final isOngoing =
+          !record.sessionStart.isAfter(now) && record.sessionEnd.isAfter(now);
+      if (isOngoing) {
+        return record;
+      }
+    }
+    return null;
+  }
 
   String get _selectedRangeSubtitle {
     switch (_selectedRange) {
       case StudentHistoryRange.week:
-        return 'This week';
+        return 'Current Week';
       case StudentHistoryRange.month:
-        return 'Last 30 days';
+        return 'Current Month';
       case StudentHistoryRange.all:
-        return 'All';
+        return 'All Time';
     }
   }
 
@@ -360,24 +337,6 @@ class _StudentDashPageState extends State<StudentDashPage> {
 
     return Scaffold(
       backgroundColor: _StudentTheme.pageBg,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          'Student Dashboard',
-          style: TextStyle(
-            color: _StudentTheme.textPrimary,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Logout',
-            onPressed: logout,
-            icon: const Icon(Icons.logout_rounded),
-          ),
-        ],
-      ),
       body: RefreshIndicator(
         onRefresh: () async {
           setState(() {
@@ -385,21 +344,27 @@ class _StudentDashPageState extends State<StudentDashPage> {
             _selectedStatus = null;
             _searchController.clear();
           });
-          await _loadAttendances();
+          await _loadSessionHistory();
         },
         color: _StudentTheme.primary,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 22),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
           children: [
+            _buildTopHeader(),
+            const SizedBox(height: 14),
+            _buildProgressPanel(),
+            const SizedBox(height: 12),
             _buildHeroCard(),
+            const SizedBox(height: 12),
+            _buildCurrentSessionCard(),
             const SizedBox(height: 12),
             _buildStatsRow(),
             const SizedBox(height: 12),
             _buildFiltersCard(),
             const SizedBox(height: 12),
             Text(
-              'Attendance history (${records.length})',
+              'Session history (${records.length})',
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
@@ -407,7 +372,7 @@ class _StudentDashPageState extends State<StudentDashPage> {
               ),
             ),
             const SizedBox(height: 10),
-            if (_loadingAttendances)
+            if (_loadingHistory)
               const Center(
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 20),
@@ -426,7 +391,7 @@ class _StudentDashPageState extends State<StudentDashPage> {
                   border: Border.all(color: _StudentTheme.border),
                 ),
                 child: const Text(
-                  'Erreur de chargement des presences.',
+                  'Erreur de chargement des sessions.',
                   style: TextStyle(
                     color: _StudentTheme.textPrimary,
                     fontWeight: FontWeight.w700,
@@ -438,9 +403,17 @@ class _StudentDashPageState extends State<StudentDashPage> {
             else
               ...records.map(
                 (record) => Padding(
+                  key: ValueKey(
+                    'session-${record.sessionId}-${record.sessionStart.millisecondsSinceEpoch}',
+                  ),
                   padding: const EdgeInsets.only(bottom: 10),
-                  child: _AttendanceHistoryCard(
+                  child: _SessionHistoryCard(
                     record: record,
+                    isCurrent:
+                        _currentSession != null &&
+                        _currentSession!.sessionId == record.sessionId &&
+                        _currentSession!.sessionStart == record.sessionStart &&
+                        _currentSession!.sessionEnd == record.sessionEnd,
                     dateLabel: _humanReadableDate(record.sessionStart),
                     timeLabel:
                         '${_formatTime(record.sessionStart)} - ${_formatTime(record.sessionEnd)}',
@@ -456,21 +429,155 @@ class _StudentDashPageState extends State<StudentDashPage> {
     );
   }
 
+  Widget _buildTopHeader() {
+    return SafeArea(
+      bottom: false,
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE0E6F0),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+            child: const Icon(
+              Icons.person_rounded,
+              color: Color(0xFF2D4A78),
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Hello Student,',
+                  style: TextStyle(
+                    color: _StudentTheme.textSecondary,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                  ),
+                ),
+                SizedBox(height: 1),
+                Text(
+                  'My Dashboard',
+                  style: TextStyle(
+                    color: _StudentTheme.primaryDeep,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 34 / 2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _StudentTheme.border),
+            ),
+            child: IconButton(
+              tooltip: 'Logout',
+              onPressed: logout,
+              icon: const Icon(
+                Icons.logout_rounded,
+                color: _StudentTheme.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressPanel() {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _StudentTheme.border),
+      ),
+      child: Row(
+        children: [
+          // const Padding(
+          //   padding: EdgeInsets.only(left: 4),
+          //   child: Text(
+          //     'Overall\nProgress',
+          //     style: TextStyle(
+          //       fontSize: 17,
+          //       fontWeight: FontWeight.w800,
+          //       color: _StudentTheme.textPrimary,
+          //     ),
+          //   ),
+          // ),
+          // const SizedBox(width: 12),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              decoration: BoxDecoration(
+                color: _StudentTheme.neutralSoft,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                children: StudentHistoryRange.values.map((range) {
+                  final selected = _selectedRange == range;
+                  return Expanded(
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(999),
+                      onTap: () {
+                        setState(() => _selectedRange = range);
+                        _loadSessionHistory();
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: selected ? Colors.white : Colors.transparent,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          switch (range) {
+                            StudentHistoryRange.week => 'Week',
+                            StudentHistoryRange.month => 'Month',
+                            StudentHistoryRange.all => 'All Time',
+                          },
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: selected
+                                ? _StudentTheme.primaryDeep
+                                : _StudentTheme.textPrimary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHeroCard() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [_StudentTheme.primaryDeep, _StudentTheme.primary],
-        ),
+        color: Colors.white,
+        border: Border.all(color: _StudentTheme.border),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x1A0A2F7A),
-            blurRadius: 12,
-            offset: Offset(0, 6),
+            color: Color(0x0D14213D),
+            blurRadius: 10,
+            offset: Offset(0, 4),
           ),
         ],
       ),
@@ -479,13 +586,13 @@ class _StudentDashPageState extends State<StudentDashPage> {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'My weekly presence',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800,
+                  'My session progress - $_selectedRangeSubtitle',
+                  style: const TextStyle(
+                    color: _StudentTheme.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -495,47 +602,99 @@ class _StudentDashPageState extends State<StudentDashPage> {
                   height: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0x1FFFFFFF),
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                  child: Text(
-                    _loggedUserId == null ? 'Student' : 'ID #$_loggedUserId',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      _StudentTheme.primary,
                     ),
                   ),
                 ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            '$_attendedSessions / $_totalSessions sessions attended ($_selectedRangeSubtitle)',
-            style: const TextStyle(
-              color: Color(0xE6FFFFFF),
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'ATTENDANCE RATE',
+                      style: TextStyle(
+                        color: Color(0xFF057047),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$_attendancePercent%',
+                      style: const TextStyle(
+                        color: _StudentTheme.primary,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 44,
+                        height: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: 112,
+                height: 112,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 98,
+                      height: 98,
+                      child: CircularProgressIndicator(
+                        value: 1,
+                        strokeWidth: 10,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Color(0xFFE6EBF3),
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 98,
+                      height: 98,
+                      child: CircularProgressIndicator(
+                        value: _weekRatio.clamp(0.0, 1.0),
+                        strokeWidth: 10,
+                        strokeCap: StrokeCap.round,
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          Color(0xFF0B7C4E),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF0B7C4E),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.star_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           ClipRRect(
-            borderRadius: BorderRadius.circular(100),
+            borderRadius: BorderRadius.circular(999),
             child: LinearProgressIndicator(
               value: _weekRatio.clamp(0.0, 1.0),
-              minHeight: 6,
-              backgroundColor: const Color(0x4DFFFFFF),
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+              minHeight: 10,
+              backgroundColor: const Color(0xFFE0E5EE),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                _StudentTheme.primary,
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -544,15 +703,17 @@ class _StudentDashPageState extends State<StudentDashPage> {
             child: FilledButton.icon(
               onPressed: _openScanPage,
               style: FilledButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: _StudentTheme.primary,
+                elevation: 0,
+                backgroundColor: _StudentTheme.primary,
+                foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
               ),
               icon: const Icon(Icons.qr_code_scanner_rounded),
               label: const Text(
-                'Scan presence now',
+                'Scan session QR',
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
@@ -563,43 +724,138 @@ class _StudentDashPageState extends State<StudentDashPage> {
   }
 
   Widget _buildStatsRow() {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
+    return Row(
       children: [
-        _MiniStatCard(
-          title: 'Attended',
-          value: '$_attendedSessions / $_totalSessions',
-          subtitle: _selectedRangeSubtitle,
-          icon: Icons.how_to_reg_rounded,
-          color: const Color(0xFF1C9B63),
-          bg: const Color(0xFFE6F7EF),
+        Expanded(
+          child: _MiniStatCard(
+            title: 'Attended',
+            value: '$_attendedSessions / $_totalSessions',
+            subtitle: _selectedRangeSubtitle,
+            icon: Icons.check_circle_rounded,
+            color: const Color(0xFF0B7C4E),
+            bg: const Color(0xFFEAF8F1),
+          ),
         ),
-        _MiniStatCard(
-          title: 'Missed sessions',
-          value: '$_missedSessions',
-          subtitle: 'In current filter',
-          icon: Icons.event_busy_rounded,
-          color: const Color(0xFFD94B4B),
-          bg: const Color(0xFFFDECEC),
-        ),
-        _MiniStatCard(
-          title: 'Late arrivals',
-          value: '$_filteredLate',
-          subtitle: 'In current filter',
-          icon: Icons.schedule_send_rounded,
-          color: const Color(0xFFCC8A2E),
-          bg: const Color(0xFFFFF3E3),
-        ),
-        _MiniStatCard(
-          title: 'Missed this week',
-          value: '$_weekMissed',
-          subtitle: 'Weekly risk indicator',
-          icon: Icons.warning_amber_rounded,
-          color: const Color(0xFF6E7E92),
-          bg: const Color(0xFFF0F3F8),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _MiniStatCard(
+            title: 'Missed',
+            value: '$_missedSessions',
+            subtitle: 'In current filter',
+            icon: Icons.cancel_rounded,
+            color: const Color(0xFFB3261E),
+            bg: const Color(0xFFFCEDEB),
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCurrentSessionCard() {
+    final current = _currentSession;
+    if (current == null) {
+      return const SizedBox.shrink();
+    }
+
+    final scanned = current.attended;
+    final badgeText = scanned ? 'Scanned' : 'Not scanned yet';
+    final badgeColor = scanned
+        ? const Color(0xFF1C9B63)
+        : const Color(0xFFD94B4B);
+    final badgeBg = scanned ? const Color(0xFFE6F7EF) : const Color(0xFFFDECEC);
+    final liveColor = scanned
+        ? const Color(0xFF1C9B63)
+        : const Color(0xFFD94B4B);
+    final liveBg = scanned ? const Color(0xFFE6F7EF) : const Color(0xFFFDECEC);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _StudentTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: liveBg,
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.radio_button_checked_rounded,
+                      size: 11,
+                      color: liveColor,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'LIVE',
+                      style: TextStyle(
+                        color: liveColor,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color: badgeBg,
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: Text(
+                  badgeText,
+                  style: TextStyle(
+                    color: badgeColor,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            current.courseTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: _StudentTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Prof: ${current.professorName}  •  Room ${current.salle}',
+            style: const TextStyle(
+              fontSize: 12,
+              color: _StudentTheme.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${_humanReadableDate(current.sessionStart)} • ${_formatTime(current.sessionStart)} - ${_formatTime(current.sessionEnd)}',
+            style: const TextStyle(
+              fontSize: 12,
+              color: _StudentTheme.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -612,7 +868,7 @@ class _StudentDashPageState extends State<StudentDashPage> {
     ];
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: _StudentTheme.card,
         borderRadius: BorderRadius.circular(16),
@@ -621,108 +877,167 @@ class _StudentDashPageState extends State<StudentDashPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Search by course code, title or room...',
-              hintStyle: const TextStyle(color: _StudentTheme.textSecondary),
-              prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon: _searchController.text.isEmpty
-                  ? null
-                  : IconButton(
-                      onPressed: () => _searchController.clear(),
-                      icon: const Icon(Icons.close_rounded),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search by course code, title or room...',
+                    hintStyle: const TextStyle(
+                      color: _StudentTheme.textSecondary,
                     ),
-              filled: true,
-              fillColor: _StudentTheme.neutralSoft,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: _searchController.text.isEmpty
+                        ? null
+                        : IconButton(
+                            onPressed: () => _searchController.clear(),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    filled: true,
+                    fillColor: _StudentTheme.neutralSoft,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: _showFilters
+                      ? _StudentTheme.primarySoft
+                      : _StudentTheme.neutralSoft,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _showFilters
+                        ? _StudentTheme.primary
+                        : _StudentTheme.border,
+                  ),
+                ),
+                child: IconButton(
+                  tooltip: _showFilters ? 'Hide filters' : 'Show filters',
+                  onPressed: () {
+                    setState(() => _showFilters = !_showFilters);
+                  },
+                  icon: Icon(
+                    _showFilters
+                        ? Icons.filter_list_off_rounded
+                        : Icons.filter_list_rounded,
+                    color: _showFilters
+                        ? _StudentTheme.primary
+                        : _StudentTheme.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 180),
+            crossFadeState: _showFilters
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            firstChild: const SizedBox.shrink(),
+            secondChild: Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Range',
+                    style: TextStyle(
+                      color: _StudentTheme.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: StudentHistoryRange.values.map((range) {
+                      final selected = _selectedRange == range;
+                      return _buildFilterChip(
+                        label: range.label,
+                        selected: selected,
+                        onTap: () {
+                          setState(() => _selectedRange = range);
+                          _loadSessionHistory();
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Status',
+                    style: TextStyle(
+                      color: _StudentTheme.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: statusOptions.map((status) {
+                      final selected = _selectedStatus == status;
+                      final label = status == null ? 'All' : status.label;
+                      return _buildFilterChip(
+                        label: label,
+                        selected: selected,
+                        onTap: () {
+                          setState(() => _selectedStatus = status);
+                          _loadSessionHistory();
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          const Text(
-            'Range',
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: _StudentTheme.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: StudentHistoryRange.values.map((range) {
-              final selected = _selectedRange == range;
-              return ChoiceChip(
-                selected: selected,
-                label: Text(range.label),
-                onSelected: (_) {
-                  setState(() => _selectedRange = range);
-                  _loadAttendances();
-                },
-                backgroundColor: Colors.white,
-                selectedColor: _StudentTheme.primarySoft,
-                side: BorderSide(
-                  color: selected
-                      ? _StudentTheme.primary
-                      : _StudentTheme.border,
-                ),
-                labelStyle: TextStyle(
-                  color: selected
-                      ? _StudentTheme.primary
-                      : _StudentTheme.textSecondary,
-                  fontWeight: FontWeight.w700,
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Status',
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: _StudentTheme.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: statusOptions.map((status) {
-              final selected = _selectedStatus == status;
-              final label = status == null ? 'All statuses' : status.label;
-              return ChoiceChip(
-                selected: selected,
-                label: Text(label),
-                onSelected: (_) {
-                  setState(() => _selectedStatus = status);
-                  _loadAttendances();
-                },
-                backgroundColor: Colors.white,
-                selectedColor: status == null
-                    ? _StudentTheme.primarySoft
-                    : status.bgColor(),
-                side: BorderSide(
-                  color: selected
-                      ? (status == null
-                            ? _StudentTheme.primary
-                            : status.textColor())
-                      : _StudentTheme.border,
-                ),
-                labelStyle: TextStyle(
-                  color: selected
-                      ? (status == null
-                            ? _StudentTheme.primary
-                            : status.textColor())
-                      : _StudentTheme.textSecondary,
-                  fontWeight: FontWeight.w700,
-                ),
-              );
-            }).toList(),
-          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected
+              ? _StudentTheme.primarySoft
+              : _StudentTheme.neutralSoft,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected ? _StudentTheme.primary : _StudentTheme.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected
+                ? _StudentTheme.primary
+                : _StudentTheme.textSecondary,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+          ),
+        ),
       ),
     );
   }
@@ -744,7 +1059,7 @@ class _StudentDashPageState extends State<StudentDashPage> {
           ),
           SizedBox(height: 10),
           Text(
-            'No attendance found',
+            'No session found',
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w800,
@@ -785,79 +1100,77 @@ class _MiniStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cardWidth = (MediaQuery.of(context).size.width - 42) / 2;
-
-    return SizedBox(
-      width: cardWidth,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _StudentTheme.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(5),
-                  decoration: BoxDecoration(
-                    color: bg,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(icon, size: 15, color: color),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _StudentTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: _StudentTheme.textPrimary,
-                    ),
+                child: Icon(icon, size: 15, color: color),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _StudentTheme.textPrimary,
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 9),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: _StudentTheme.textPrimary,
-                height: 1,
               ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: _StudentTheme.textPrimary,
+              height: 1,
             ),
-            const SizedBox(height: 3),
-            Text(
-              subtitle,
-              style: const TextStyle(
-                fontSize: 11,
-                color: _StudentTheme.textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              fontSize: 11,
+              color: _StudentTheme.textSecondary,
+              fontWeight: FontWeight.w600,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _AttendanceHistoryCard extends StatelessWidget {
-  final StudentAttendanceRecord record;
+class _SessionHistoryCard extends StatelessWidget {
+  final StudentSessionRecord record;
+  final bool isCurrent;
   final String dateLabel;
   final String timeLabel;
   final String scanLabel;
 
-  const _AttendanceHistoryCard({
+  const _SessionHistoryCard({
+    super.key,
     required this.record,
+    this.isCurrent = false,
     required this.dateLabel,
     required this.timeLabel,
     required this.scanLabel,
@@ -866,17 +1179,69 @@ class _AttendanceHistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = record.status;
+    final attended = record.attended;
+    final badgeText = attended ? 'Attended' : 'Not attended';
+    final badgeColor = attended
+        ? const Color(0xFF1C9B63)
+        : const Color(0xFFD94B4B);
+    final badgeBg = attended
+        ? const Color(0xFFE6F7EF)
+        : const Color(0xFFFDECEC);
+    final badgeIcon = attended
+        ? Icons.check_circle_rounded
+        : Icons.cancel_rounded;
+    final liveColor = attended
+        ? const Color(0xFF1C9B63)
+        : const Color(0xFFD94B4B);
+    final currentBg = attended
+        ? const Color(0xFFF6FBF8)
+        : const Color(0xFFFFF7F7);
+    final currentBorder = attended
+        ? const Color(0xFFBEE7CF)
+        : const Color(0xFFF1C6C6);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isCurrent ? currentBg : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _StudentTheme.border),
+        border: Border.all(
+          color: isCurrent ? currentBorder : _StudentTheme.border,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (isCurrent)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: liveColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.radio_button_checked_rounded,
+                      size: 11,
+                      color: liveColor,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'LIVE SESSION',
+                      style: TextStyle(
+                        color: liveColor,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -896,7 +1261,7 @@ class _AttendanceHistoryCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '${record.courseCode} - Room ${record.salle}',
+                      '${record.courseCode} - Prof ${record.professorName} - Room ${record.salle}',
                       style: const TextStyle(
                         fontSize: 12,
                         color: _StudentTheme.textSecondary,
@@ -910,18 +1275,18 @@ class _AttendanceHistoryCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
-                  color: status.bgColor(),
+                  color: badgeBg,
                   borderRadius: BorderRadius.circular(100),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(status.icon, size: 13, color: status.textColor()),
+                    Icon(badgeIcon, size: 13, color: badgeColor),
                     const SizedBox(width: 4),
                     Text(
-                      status.label,
+                      badgeText,
                       style: TextStyle(
-                        color: status.textColor(),
+                        color: badgeColor,
                         fontWeight: FontWeight.w800,
                         fontSize: 11,
                       ),
@@ -930,6 +1295,15 @@ class _AttendanceHistoryCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Status: ${status.label}',
+            style: const TextStyle(
+              fontSize: 11,
+              color: _StudentTheme.textSecondary,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 10),
           Container(

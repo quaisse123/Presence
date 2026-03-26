@@ -41,7 +41,7 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
 			SELECT COUNT(DISTINCT a.session.id) FROM Attendance a
 			JOIN a.session s
 			WHERE a.student.id = :studentId
-			AND s.endTime <= :now
+			AND s.startTime <= :now
 			AND (:startDate IS NULL OR s.startTime >= :startDate)
 			AND (:endDate IS NULL OR s.startTime <= :endDate)
 			AND a.status IN :attendedStatuses
@@ -53,4 +53,6 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
 			@Param("endDate") LocalDateTime endDate,
 			@Param("attendedStatuses") List<AttendanceStatus> attendedStatuses
 	);
+
+	List<Attendance> findByStudent_IdAndSession_IdIn(Long studentId, List<Long> sessionIds);
 }

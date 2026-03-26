@@ -165,7 +165,7 @@ class _LoginPageState extends State<LoginPage> {
         children: [
           _buildTextField(
             controller: _emailController,
-            label: 'Email address',
+            label: 'Ensam email address',
             hint: 'you@example.com',
             icon: Icons.mail_outline_rounded,
             keyboardType: TextInputType.emailAddress,
@@ -173,8 +173,14 @@ class _LoginPageState extends State<LoginPage> {
               if (value == null || value.isEmpty) {
                 return 'Please enter your email';
               }
-              if (!RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+              final normalizedEmail = value.trim().toLowerCase();
+              if (!RegExp(
+                r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$',
+              ).hasMatch(normalizedEmail)) {
                 return 'Please enter a valid email';
+              }
+              if (!normalizedEmail.endsWith('@ensam-casa.ma')) {
+                return 'Email must end with @ensam-casa.ma';
               }
               return null;
             },

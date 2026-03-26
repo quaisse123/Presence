@@ -30,5 +30,5 @@ String get apiUrl {
   // Par défaut (mobile physique Android/iOS, desktop, etc.)
   // Utilise l'IP locale du PC sur le réseau WiFi
   // À personnaliser selon l'adresse IP de ta machine
-  return 'http://192.168.0.21:8080/api'; // ← Mets ici l’IP locale de ton PC
+  return 'http://192.168.8.149:8080/api'; // ← Mets ici l’IP locale de ton PC
 }

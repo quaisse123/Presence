@@ -39,6 +39,10 @@ public class AuthManager implements AuthService {
             throw new RuntimeException("Incorrect email or password");
         }
 
+        if (!user.getEmail().endsWith("@ensam-casa.ma")) {
+            throw new RuntimeException("Email must end with @ensam-casa.ma");
+        }
+
         Map<String, Object> claims = new HashMap<>();
         claims.put("role", user.getRole().name());
         claims.put("userId", user.getId());

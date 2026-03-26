@@ -2,9 +2,12 @@ package com.backend.backend.web;
 
 import com.backend.backend.dto.session.SessionDTO;
 import com.backend.backend.dto.session.SessionSummaryDTO;
+import com.backend.backend.dto.session.StudentSessionHistoryResponseDTO;
 import com.backend.backend.service.SessionManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,5 +33,18 @@ public class SessionController {
     @GetMapping("/{id}")
     public SessionDTO getSessionDetail(@PathVariable Long id) {
         return sessionManager.getSessionDetail(id);
+    }
+
+    @GetMapping("/my-history")
+    public ResponseEntity<StudentSessionHistoryResponseDTO> getMySessionHistory(
+            Authentication authentication,
+            @RequestParam(required = false) String period,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String search
+    ) {
+        String studentEmail = authentication.getName();
+        StudentSessionHistoryResponseDTO result =
+                sessionManager.getStudentSessionHistory(period, status, search, studentEmail);
+        return ResponseEntity.ok(result);
     }
 }

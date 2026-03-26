@@ -78,7 +78,7 @@ public class BackendApplication {
 			//  ADMIN
 			// ══════════════════════════════════════════════════════════
 			User admin = new User();
-			admin.setEmail("admin@presence.fr");
+			admin.setEmail("admin@ensam-casa.ma");
 			admin.setPassword("admin1234");
 			admin.setRole(Role.ADMIN);
 			userRepo.save(admin);
@@ -87,12 +87,12 @@ public class BackendApplication {
 			//  PROFESSEURS
 			// ══════════════════════════════════════════════════════════
 			String[][] profDefs = {
-				{"dupont.jean@presence.fr",   "bio-prof-001"},
-				{"martin.claire@presence.fr", "bio-prof-002"},
-				{"leroy.paul@presence.fr",    "bio-prof-003"},
-				{"benali.sara@presence.fr",   "bio-prof-004"},
-				{"roux.marc@presence.fr",     "bio-prof-005"},
-				{"faure.camille@presence.fr", "bio-prof-006"},
+				{"dupont.jean@ensam-casa.ma",   "bio-prof-001"},
+				{"martin.claire@ensam-casa.ma", "bio-prof-002"},
+				{"leroy.paul@ensam-casa.ma",    "bio-prof-003"},
+				{"benali.sara@ensam-casa.ma",   "bio-prof-004"},
+				{"roux.marc@ensam-casa.ma",     "bio-prof-005"},
+				{"faure.camille@ensam-casa.ma", "bio-prof-006"},
 			};
 			User[] profs = new User[profDefs.length];
 			for (int i = 0; i < profDefs.length; i++) {
@@ -129,7 +129,7 @@ public class BackendApplication {
 					String fn = firstNames[gIdx % firstNames.length];
 					String ln = lastNames[(gIdx * 7 + 3) % lastNames.length];
 					User s = new User();
-					s.setEmail(fn.toLowerCase() + "." + ln.toLowerCase() + (gIdx + 1) + "@etu.fr");
+					s.setEmail(fn.toLowerCase() + "." + ln.toLowerCase() + (gIdx + 1) + "@ensam-casa.ma");
 					s.setPassword("etudiant1234");
 					s.setRole(Role.STUDENT);
 					s.setBiometricToken("bio-stu-" + String.format("%04d", gIdx + 1));
