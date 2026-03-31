@@ -81,6 +81,7 @@ public class BackendApplication {
 			admin.setEmail("admin@ensam-casa.ma");
 			admin.setPassword("admin1234");
 			admin.setRole(Role.ADMIN);
+			admin.setStatus(Status.ACTIVE);
 			userRepo.save(admin);
 
 			// ══════════════════════════════════════════════════════════
@@ -100,6 +101,7 @@ public class BackendApplication {
 				p.setEmail(profDefs[i][0]);
 				p.setPassword("prof1234");
 				p.setRole(Role.PROFESSOR);
+				p.setStatus(Status.ACTIVE);
 				p.setBiometricToken(profDefs[i][1]);
 				profs[i] = userRepo.save(p);
 			}
@@ -132,6 +134,7 @@ public class BackendApplication {
 					s.setEmail(fn.toLowerCase() + "." + ln.toLowerCase() + (gIdx + 1) + "@ensam-casa.ma");
 					s.setPassword("etudiant1234");
 					s.setRole(Role.STUDENT);
+					s.setStatus(Status.ACTIVE);
 					s.setBiometricToken("bio-stu-" + String.format("%04d", gIdx + 1));
 					s.setGroup(groups[gi]);
 					gs[si] = userRepo.save(s);

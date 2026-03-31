@@ -3,8 +3,7 @@ import 'package:frontend/Api/AuthApi.dart';
 import 'package:frontend/Api/JwtService.dart';
 import 'package:frontend/MainScreen.dart';
 import 'package:frontend/config/MainRedirection.dart';
-import 'package:frontend/pages/profDash.dart';
-import 'package:http/http.dart';
+import 'package:frontend/pages/activationEmail.dart';
 
 void main() {
   runApp(const MyApp());
@@ -37,7 +36,8 @@ class _LoginPageState extends State<LoginPage> {
   bool _obscurePassword = true;
   bool _isLoading = false;
 
-  static const Color primaryBlue = Color(0xFF1877F2);
+  static const Color primaryBlue = Color(0xFF1E5A99);
+  static const Color navy = Color(0xFF0F2747);
   static const Color darkColor = Color(0xFF1C1E21);
   static const Color lightGrey = Color(0xFFF0F2F5);
 
@@ -86,37 +86,126 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: SizedBox(
-            height:
-                MediaQuery.of(context).size.height -
-                MediaQuery.of(context).padding.top,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 28.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 60),
-                  _buildHeader(),
-                  const SizedBox(height: 48),
-                  _buildForm(),
-                  const SizedBox(height: 16),
-                  _buildForgotPassword(),
-                  const SizedBox(height: 28),
-                  _buildLoginButton(),
-                  const SizedBox(height: 24),
-                  _buildDivider(),
-                  const SizedBox(height: 24),
-                  _buildGoogleButton(),
-                  const Spacer(),
-                  _buildSignUpRow(),
-                  const SizedBox(height: 32),
-                ],
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFE8F0FA), Color(0xFFF9FCFF)],
+          ),
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              top: -80,
+              right: -60,
+              child: Container(
+                width: 220,
+                height: 220,
+                decoration: BoxDecoration(
+                  color: primaryBlue.withOpacity(0.08),
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
-          ),
+            Positioned(
+              bottom: -70,
+              left: -60,
+              child: Container(
+                width: 240,
+                height: 240,
+                decoration: BoxDecoration(
+                  color: navy.withOpacity(0.07),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 22,
+                      vertical: 20,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight - 40,
+                      ),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 540),
+                          child: Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x12000000),
+                                  blurRadius: 26,
+                                  offset: Offset(0, 16),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildHeader(),
+                                const SizedBox(height: 22),
+                                _buildForm(),
+                                const SizedBox(height: 12),
+                                _buildForgotPassword(),
+                                const SizedBox(height: 22),
+                                _buildLoginButton(),
+                                const SizedBox(height: 14),
+                                _buildSignUpRow(),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogoHeader() {
+    return Center(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.asset(
+          'assets/images/ensam_logo.png',
+          fit: BoxFit.contain,
+          height: 60,
+          errorBuilder: (_, error, ___) {
+            debugPrint('ENSAM logo load error: $error');
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF2F6FB),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text(
+                'ENSAM',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: primaryBlue,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -126,32 +215,24 @@ class _LoginPageState extends State<LoginPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: primaryBlue,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 26),
-        ),
-        const SizedBox(height: 28),
+        _buildLogoHeader(),
+        const SizedBox(height: 22),
         Text(
           'Welcome back',
           style: TextStyle(
-            fontSize: 30,
-            fontWeight: FontWeight.w700,
-            color: darkColor,
-            letterSpacing: -0.5,
+            fontSize: 28,
+            fontWeight: FontWeight.w800,
+            color: navy,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          'Sign in to your account to continue',
+          'Sign in with your ENSAM account to continue.',
           style: TextStyle(
-            fontSize: 15,
-            color: darkColor.withOpacity(0.5),
-            fontWeight: FontWeight.w400,
+            fontSize: 14,
+            color: const Color(0xFF54657A),
+            fontWeight: FontWeight.w500,
+            height: 1.45,
           ),
         ),
       ],
@@ -228,7 +309,6 @@ class _LoginPageState extends State<LoginPage> {
     Widget? suffixIcon,
     String? Function(String?)? validator,
   }) {
-    // Ajout autofillHints pour email et password
     List<String>? autofillHints;
     if (label.toLowerCase().contains('email')) {
       autofillHints = [AutofillHints.email];
@@ -241,10 +321,10 @@ class _LoginPageState extends State<LoginPage> {
         Text(
           label,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: darkColor.withOpacity(0.75),
-            letterSpacing: 0.2,
+            color: const Color(0xFF355070),
+            letterSpacing: 0.1,
           ),
         ),
         const SizedBox(height: 8),
@@ -254,53 +334,43 @@ class _LoginPageState extends State<LoginPage> {
           obscureText: obscureText,
           style: TextStyle(
             fontSize: 15,
-            color: darkColor,
+            color: navy,
             fontWeight: FontWeight.w500,
           ),
           validator: validator,
           autofillHints: autofillHints,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(
-              color: darkColor.withOpacity(0.3),
-              fontSize: 15,
-            ),
-            prefixIcon: Padding(
-              padding: const EdgeInsets.only(left: 14, right: 10),
-              child: Icon(icon, color: darkColor.withOpacity(0.35), size: 20),
-            ),
-            prefixIconConstraints: const BoxConstraints(
-              minWidth: 0,
-              minHeight: 0,
-            ),
+            hintStyle: const TextStyle(color: Color(0xFF9DB0C3), fontSize: 14),
+            prefixIcon: Icon(icon, color: const Color(0xFF7D94AE), size: 20),
             suffixIcon: suffixIcon,
             filled: true,
-            fillColor: lightGrey,
+            fillColor: const Color(0xFFF8FAFD),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
-              vertical: 16,
+              vertical: 18,
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Color(0xFFD9E4F2)),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Color(0xFFD9E4F2)),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               borderSide: const BorderSide(color: primaryBlue, width: 1.5),
             ),
             errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               borderSide: const BorderSide(
                 color: Color(0xFFE53935),
                 width: 1.5,
               ),
             ),
             focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               borderSide: const BorderSide(
                 color: Color(0xFFE53935),
                 width: 1.5,
@@ -322,7 +392,7 @@ class _LoginPageState extends State<LoginPage> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: primaryBlue,
+            color: Color(0xFF1E5A99),
           ),
         ),
       ),
@@ -333,18 +403,18 @@ class _LoginPageState extends State<LoginPage> {
     return SizedBox(
       width: double.infinity,
       height: 52,
-      child: ElevatedButton(
+      child: ElevatedButton.icon(
         onPressed: _isLoading ? null : _handleLogin,
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryBlue,
-          foregroundColor: const Color.fromARGB(255, 175, 163, 163),
+          foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
           disabledBackgroundColor: primaryBlue.withOpacity(0.6),
         ),
-        child: _isLoading
+        icon: _isLoading
             ? const SizedBox(
                 width: 22,
                 height: 22,
@@ -353,14 +423,15 @@ class _LoginPageState extends State<LoginPage> {
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               )
-            : const Text(
-                'Sign in',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.3,
-                ),
-              ),
+            : const Icon(Icons.login_rounded),
+        label: Text(
+          _isLoading ? 'Signing in...' : 'Sign in',
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.2,
+          ),
+        ),
       ),
     );
   }
@@ -433,30 +504,38 @@ class _LoginPageState extends State<LoginPage> {
 
   Widget _buildSignUpRow() {
     return Center(
-      child: RichText(
-        text: TextSpan(
-          text: "Don't have an account? ",
-          style: TextStyle(
-            fontSize: 14,
-            color: darkColor.withOpacity(0.5),
-            fontWeight: FontWeight.w400,
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 4,
+        children: [
+          Text(
+            'First time here?',
+            style: TextStyle(
+              fontSize: 14,
+              color: const Color(0xFF54657A),
+              fontWeight: FontWeight.w500,
+            ),
           ),
-          children: [
-            WidgetSpan(
-              child: GestureDetector(
-                onTap: () {},
-                child: const Text(
-                  'Create one',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: primaryBlue,
-                    fontWeight: FontWeight.w700,
-                  ),
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ActivationEmailPage(),
                 ),
+              );
+            },
+            child: const Text(
+              'Activate my account',
+              style: TextStyle(
+                fontSize: 14,
+                color: primaryBlue,
+                fontWeight: FontWeight.w800,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

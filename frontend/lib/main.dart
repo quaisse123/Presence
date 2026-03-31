@@ -34,8 +34,12 @@ class MyApp extends StatelessWidget {
         colorSchemeSeed: const Color(0xFF1A73E8),
         fontFamily: 'Roboto',
       ),
-      initialRoute: !isLoggedIn ? '/login' : '/home',
+      initialRoute: '/',
       getPages: [
+        GetPage(
+          name: '/',
+          page: () => !isLoggedIn ? const LoginPage() : getPageForRole(userRole),
+        ),
         GetPage(name: '/login', page: () => const LoginPage()),
         GetPage(name: '/profDash', page: () => const ProfDashPage()),
         GetPage(name: '/home', page: () => getPageForRole(userRole)),

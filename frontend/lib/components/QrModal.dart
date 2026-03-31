@@ -7,8 +7,8 @@ import 'package:qr_flutter/qr_flutter.dart';
 /// Displays the QR modal as a bottom sheet.
 /// Usage:
 ///   showQrModal(context, sessionId: 5);
-void showQrModal(BuildContext context, {required int sessionId}) {
-  showModalBottomSheet(
+Future<void> showQrModal(BuildContext context, {required int sessionId}) async {
+  return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,

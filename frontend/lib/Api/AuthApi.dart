@@ -22,6 +22,76 @@ Future<Map<String, dynamic>> login(String email, String password) async {
   }
 }
 
+Future<Map<String, dynamic>> sendActivationPin(String email) async {
+  final url = Uri.parse('${apiUrl}/auth/activation/send-pin');
+  final response = await http.post(
+    url,
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode({'email': email}),
+  );
+
+  if (response.statusCode == 200) {
+    return jsonDecode(response.body);
+  } else {
+    throw Exception(jsonDecode(response.body)['error'] ?? 'Failed to send PIN');
+  }
+}
+
+Future<Map<String, dynamic>> verifyActivationPin(
+  String email,
+  String pin,
+) async {
+  final url = Uri.parse('${apiUrl}/auth/activation/verify-pin');
+  final response = await http.post(
+    url,
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode({'email': email, 'pin': pin}),
+  );
+
+  if (response.statusCode == 200) {
+    return jsonDecode(response.body);
+  } else {
+    throw Exception(
+      jsonDecode(response.body)['error'] ?? 'Failed to verify PIN',
+    );
+  }
+}
+
+Future<Map<String, dynamic>> completeActivationProfile({
+  required String email,
+  required String firstName,
+  required String lastName,
+  required String apogeeCode,
+  required String password,
+  required String level,
+  String? section,
+  String? major,
+}) async {
+  final url = Uri.parse('${apiUrl}/auth/activation/complete-profile');
+  final response = await http.post(
+    url,
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode({
+      'email': email,
+      'firstName': firstName,
+      'lastName': lastName,
+      'apogeeCode': apogeeCode,
+      'password': password,
+      'level': level,
+      'section': section,
+      'major': major,
+    }),
+  );
+
+  if (response.statusCode == 200) {
+    return jsonDecode(response.body);
+  } else {
+    throw Exception(
+      jsonDecode(response.body)['error'] ?? 'Failed to complete activation',
+    );
+  }
+}
+
 Future<bool> isUserLoggedIn() async {
   try {
     final token = await getValidAccessToken();

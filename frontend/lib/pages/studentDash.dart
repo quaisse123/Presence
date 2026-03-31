@@ -267,6 +267,9 @@ class _StudentDashPageState extends State<StudentDashPage> {
     await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => const StudentScanTestPage()));
+
+    // Recharger l'historique apres un scan pour mettre a jour le statut en temps reel.
+    _loadSessionHistory();
   }
 
   List<StudentSessionRecord> get _filteredRecords {
@@ -675,7 +678,7 @@ class _StudentDashPageState extends State<StudentDashPage> {
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
-                        Icons.star_rounded,
+                        Icons.school,
                         color: Colors.white,
                         size: 20,
                       ),
@@ -949,31 +952,6 @@ class _StudentDashPageState extends State<StudentDashPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Range',
-                    style: TextStyle(
-                      color: _StudentTheme.textSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: StudentHistoryRange.values.map((range) {
-                      final selected = _selectedRange == range;
-                      return _buildFilterChip(
-                        label: range.label,
-                        selected: selected,
-                        onTap: () {
-                          setState(() => _selectedRange = range);
-                          _loadSessionHistory();
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 10),
                   const Text(
                     'Status',
                     style: TextStyle(

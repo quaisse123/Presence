@@ -213,8 +213,9 @@ class _ProfDashPageState extends State<ProfDashPage> {
     await _loadSessions();
   }
 
-  void _showQrCode(Session session) {
-    showQrModal(context, sessionId: session.id);
+  void _showQrCode(Session session) async {
+    await showQrModal(context, sessionId: session.id);
+    _loadSessions();
   }
 
   void _viewAttendance(Session session) {
