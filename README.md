@@ -46,7 +46,7 @@ Deux parcours distincts :
 - **Frontend** : Flutter consomme une API REST JSON.
 - **Backend** : Spring Boot applique la logique métier et persiste en **H2** *(base embarquée réservée au développement)*.
 - **Authentification** : JWT (access + refresh).
-- **QR de présence** : JWT court dédié à une session (durée 2 min).
+- **QR de présence** : JWT court dédié à une session (durée 20 s).
 
 ---
 
@@ -82,7 +82,8 @@ Deux parcours distincts :
 
 - **Mots de passe** hachés avec **BCrypt**.
 - **JWT access** (15 min) + **refresh** (7 jours).
-- **QR de présence** : JWT court (2 min) avec `type=attendance_qr` et `sessionId`.
+- **QR de présence** : JWT court (20 s) avec `type=attendance_qr` et `sessionId`.
+- **QR anti-photo** : le code est régénéré toutes les 20 s et expire côté serveur après 20 s, empêchant la réutilisation d'une photo du QR par un étudiant hors de la classe.
 - **Secrets externalisés** via variables d'environnement :
   - `JWT_SECRET_KEY`
   - `MAIL_USERNAME` / `MAIL_PASSWORD`

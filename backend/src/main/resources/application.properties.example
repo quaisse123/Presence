@@ -33,7 +33,7 @@ jwtSecretKey=<REMPLACE_PAR_TA_CLE_JWT_64_HEX>
 # ─── JWT Durations (milliseconds) ───────────────────────────────────────────
 jwt.access.duration=900000
 jwt.refresh.duration=604800000
-jwt.qr.duration=120000
+jwt.qr.duration=20000
 
 # ─── Email Sender Configuration ─────────────────────────────────────────────
 # SMTP host used to send activation PIN emails.
