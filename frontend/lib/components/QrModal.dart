@@ -35,7 +35,10 @@ class _QrModalState extends State<QrModal> {
     fetchAndSetToken();
     // Rafraîchit le QR toutes les 20s pour empêcher la réutilisation
     // d'une photo du code par un étudiant hors de la classe.
-    _timer = Timer.periodic(const Duration(seconds: 20), (_) => fetchAndSetToken());
+    _timer = Timer.periodic(
+      const Duration(seconds: 20),
+      (_) => fetchAndSetToken(),
+    );
   }
 
   Future<void> fetchAndSetToken() async {
