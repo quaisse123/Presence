@@ -1,0 +1,44 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  EXEMPLE DE CONFIGURATION — copie ce fichier en "application.properties"
+#  puis remplis les valeurs marquées <...> avec TES propres secrets.
+#  ⚠️  Ne JAMAIS commiter application.properties (il est dans .gitignore).
+# ═══════════════════════════════════════════════════════════════════════════
+
+spring.application.name=backend
+server.address=0.0.0.0
+
+# ─── H2 File Mode (persistence entre restarts) ──────────────────────────────
+spring.datasource.url=jdbc:h2:file:./data/presencedb;AUTO_SERVER=TRUE
+spring.datasource.driver-class-name=org.h2.Driver
+spring.datasource.username=sa
+spring.datasource.password=
+spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+spring.jpa.hibernate.ddl-auto=update
+
+# ─── H2 Console (http://localhost:8080/h2-console) ──────────────────────────
+spring.h2.console.enabled=true
+spring.h2.console.path=/h2-console
+spring.h2.console.settings.web-allow-others=true
+
+# ─── JWT Secret (génère le tien : https://www.allkeysgenerator.com/) ────────
+# 64 caractères hexadécimaux recommandés.
+jwtSecretKey=<REMPLACE_PAR_TA_CLE_JWT_64_HEX>
+
+# ─── JWT Durations (milliseconds) ───────────────────────────────────────────
+jwt.access.duration=900000
+jwt.refresh.duration=604800000
+jwt.qr.duration=120000
+
+# ─── Email Sender Configuration ─────────────────────────────────────────────
+# SMTP host used to send activation PIN emails.
+spring.mail.host=smtp.gmail.com
+# SMTP port for TLS.
+spring.mail.port=587
+# Sender account email address.
+spring.mail.username=<TON_EMAIL_GMAIL>
+# Sender account app password (Gmail > Sécurité > Mots de passe d'application).
+spring.mail.password=<TON_MOT_DE_PASSE_APP_GMAIL>
+# Enable SMTP authentication.
+spring.mail.properties.mail.smtp.auth=true
+# Enable STARTTLS encryption.
+spring.mail.properties.mail.smtp.starttls.enable=true

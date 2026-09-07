@@ -34,3 +34,7 @@ build/
 
 
 **/application.properties
+
+### Base de données H2 locale (données réelles, ne pas versionner) ###
+backend/data/
+data/
