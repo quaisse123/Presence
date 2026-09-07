@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/Api/sessionsApi.dart';
 import 'package:frontend/components/QrModal.dart';
+import 'package:frontend/components/create_session_form.dart';
 import 'package:frontend/pages/sessionDetails.dart';
 
 enum SessionStatus { active, upcoming, completed }
@@ -230,12 +231,61 @@ class _ProfDashPageState extends State<ProfDashPage> {
   }
 
   void _createSession() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Create session form - coming soon'),
-        behavior: SnackBarBehavior.floating,
+    showCreateSessionModal(context, onCreated: _loadSessions);
+  }
+
+  Future<void> _closeSession(Session session) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text('Close session'),
+        content: Text(
+          'Fermer la session "${session.courseTitle}" (${session.courseCode}) ? '
+          'Les étudiants ne pourront plus scanner.',
+          style: const TextStyle(color: _DashTheme.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: _DashTheme.warning,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
+    if (confirmed != true) return;
+
+    try {
+      await closeSession(session.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Session "${session.courseTitle}" fermée.'),
+            backgroundColor: _DashTheme.success,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        _loadSessions();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: _DashTheme.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   void _confirmDelete(Session session) {
@@ -372,6 +422,7 @@ class _ProfDashPageState extends State<ProfDashPage> {
                     onQrTap: () => _showQrCode(session),
                     onAttendanceTap: () => _viewAttendance(session),
                     onDeleteTap: () => _confirmDelete(session),
+                    onCloseTap: () => _closeSession(session),
                   ),
                 ),
               ),
@@ -699,12 +750,14 @@ class _SessionCard extends StatefulWidget {
   final VoidCallback onQrTap;
   final VoidCallback onAttendanceTap;
   final VoidCallback onDeleteTap;
+  final VoidCallback? onCloseTap;
 
   const _SessionCard({
     required this.session,
     required this.onQrTap,
     required this.onAttendanceTap,
     required this.onDeleteTap,
+    this.onCloseTap,
   });
 
   @override
@@ -1064,6 +1117,15 @@ class _SessionCardState extends State<_SessionCard> {
                       color: _DashTheme.primary,
                       bg: _DashTheme.primarySoft,
                       onTap: widget.onQrTap,
+                    ),
+                  if (session.status == SessionStatus.active &&
+                      widget.onCloseTap != null)
+                    _ActionButton(
+                      icon: Icons.stop_circle_outlined,
+                      label: 'Close',
+                      color: _DashTheme.warning,
+                      bg: _DashTheme.warningSoft,
+                      onTap: widget.onCloseTap!,
                     ),
                   _ActionButton(
                     icon: Icons.bar_chart_rounded,

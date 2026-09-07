@@ -7,6 +7,12 @@
 spring.application.name=backend
 server.address=0.0.0.0
 
+# ─── CORS Allowed Origins ───────────────────────────────────────────────────
+# Liste d'origines séparées par des virgules (ex: http://localhost:3000).
+# Vide = aucune restriction CORS (adapté à une app mobile).
+# Peut être surchargé par la variable d'environnement CORS_ALLOWED_ORIGINS.
+cors.allowed-origins=
+
 # ─── H2 File Mode (persistence entre restarts) ──────────────────────────────
 spring.datasource.url=jdbc:h2:file:./data/presencedb;AUTO_SERVER=TRUE
 spring.datasource.driver-class-name=org.h2.Driver

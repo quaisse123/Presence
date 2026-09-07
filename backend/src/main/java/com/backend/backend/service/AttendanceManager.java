@@ -106,12 +106,12 @@ public class AttendanceManager implements AttendanceService {
             return buildErrorResponse("Session non trouvée ou non active.");
         }
 
-        boolean isWithinGeofence = isLocationValid();
+        boolean isWithinGeofence = isLocationValid(session, request);
         if (!isWithinGeofence) {
             return buildErrorResponse("Hors zone autorisée pour le scan.");
         }
 
-        AttendanceStatus status = getAttendanceStatus();
+        AttendanceStatus status = getAttendanceStatus(session, request);
 
         User student = userService.getUserById(request.getStudentId());
         if (student == null) {
@@ -344,14 +344,64 @@ public class AttendanceManager implements AttendanceService {
         return Character.toUpperCase(lower.charAt(0)) + lower.substring(1);
     }
 
-    private AttendanceStatus getAttendanceStatus() {
-        // TODO Auto-generated method stub
-        return AttendanceStatus.PRESENT;
+    /**
+     * Règle LATE : si le scan a lieu plus de GRACE_MINUTES après le début
+     * de la session, l'étudiant est marqué LATE, sinon PRESENT.
+     */
+    private static final long GRACE_MINUTES = 10;
+
+    private AttendanceStatus getAttendanceStatus(Session session, AttendanceScanRequestDTO request) {
+        LocalDateTime scanTime = request.getScanTime() != null
+                ? request.getScanTime()
+                : LocalDateTime.now();
+        LocalDateTime start = session.getStartTime();
+        if (start == null) {
+            return AttendanceStatus.PRESENT;
+        }
+        // Scan avant le début de session (toléré) => PRESENT
+        if (!scanTime.isAfter(start)) {
+            return AttendanceStatus.PRESENT;
+        }
+        long minutesLate = ChronoUnit.MINUTES.between(start, scanTime);
+        return minutesLate > GRACE_MINUTES ? AttendanceStatus.LATE : AttendanceStatus.PRESENT;
     }
 
-    private boolean isLocationValid() {
-        // TODO Auto-generated method stub
-        return true;
+    /**
+     * Vérifie que le point de scan est dans le rayon (geofence) de la session.
+     * Utilise la formule de Haversine pour la distance entre deux coordonnées GPS.
+     */
+    private boolean isLocationValid(Session session, AttendanceScanRequestDTO request) {
+        Double roomLat = session.getLatitude();
+        Double roomLon = session.getLongitude();
+        Double radius = session.getRadiusInMeters();
+        Double scanLat = request.getScanLatitude();
+        Double scanLon = request.getScanLongitude();
+
+        // Si la session n'a pas de coordonnées GPS, on autorise le scan (pas de geofence).
+        if (roomLat == null || roomLon == null || radius == null) {
+            return true;
+        }
+        // Si le client n'envoie pas sa position, on refuse (geofence active).
+        if (scanLat == null || scanLon == null) {
+            return false;
+        }
+
+        double distance = haversineDistance(roomLat, roomLon, scanLat, scanLon);
+        return distance <= radius;
+    }
+
+    /**
+     * Distance en mètres entre deux points GPS (formule de Haversine).
+     */
+    private double haversineDistance(double lat1, double lon1, double lat2, double lon2) {
+        final double EARTH_RADIUS_M = 6371000.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return EARTH_RADIUS_M * c;
     }
 
     private Long toLong(Object value) {

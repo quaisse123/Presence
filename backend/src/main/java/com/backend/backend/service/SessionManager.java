@@ -2,16 +2,23 @@ package com.backend.backend.service;
 
 import com.backend.backend.dao.entities.Attendance;
 import com.backend.backend.dao.entities.AttendanceStatus;
+import com.backend.backend.dao.entities.Course;
+import com.backend.backend.dao.entities.Group;
 import com.backend.backend.dao.entities.Role;
 import com.backend.backend.dao.entities.Session;
 import com.backend.backend.dao.entities.User;
 import com.backend.backend.dao.repositories.AttendanceRepository;
+import com.backend.backend.dao.repositories.CourseRepository;
+import com.backend.backend.dao.repositories.GroupRepository;
 import com.backend.backend.dao.repositories.SessionRepository;
 import com.backend.backend.dao.repositories.UserRepository;
 import com.backend.backend.dto.course.CourseSummaryDTO;
+import com.backend.backend.dto.group.GroupDTO;
 import com.backend.backend.dto.session.SessionAttendanceDetailDTO;
+import com.backend.backend.dto.session.SessionCreateDTO;
 import com.backend.backend.dto.session.SessionDTO;
 import com.backend.backend.dto.session.SessionGroupDTO;
+import com.backend.backend.dto.session.SessionResponseDTO;
 import com.backend.backend.dto.session.SessionSummaryDTO;
 import com.backend.backend.dto.session.StudentSessionHistoryItemDTO;
 import com.backend.backend.dto.session.StudentSessionHistoryResponseDTO;
@@ -30,6 +37,7 @@ import java.util.HashMap;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -45,16 +53,22 @@ public class SessionManager implements SessionService {
     private UserRepository userRepository;
 
     @Autowired
+    private CourseRepository courseRepository;
+
+    @Autowired
+    private GroupRepository groupRepository;
+
+    @Autowired
     private ModelMapper modelMapper;
 
     @Override
     public Session createSession(Session session) {
-        return null;
+        return sessionRepository.save(session);
     }
 
     @Override
     public Session getSessionById(Long id) {
-        return null;
+        return sessionRepository.findById(id).orElse(null);
     }
 
     @Override
@@ -147,15 +161,119 @@ public class SessionManager implements SessionService {
 
     // ───────────────────────────────────────────────────────────────────────
     
-    
     @Override
     public Session updateSession(Long id, Session session) {
-        return null;
+        Session existing = sessionRepository.findById(id).orElse(null);
+        if (existing == null) {
+            return null;
+        }
+        if (session.getStartTime() != null) existing.setStartTime(session.getStartTime());
+        if (session.getEndTime() != null) existing.setEndTime(session.getEndTime());
+        if (session.getSalle() != null) existing.setSalle(session.getSalle());
+        if (session.getDescription() != null) existing.setDescription(session.getDescription());
+        if (session.getLatitude() != null) existing.setLatitude(session.getLatitude());
+        if (session.getLongitude() != null) existing.setLongitude(session.getLongitude());
+        if (session.getRadiusInMeters() != null) existing.setRadiusInMeters(session.getRadiusInMeters());
+        return sessionRepository.save(existing);
     }
 
     @Override
     public void deleteSession(Long id) {
+        sessionRepository.deleteById(id);
+    }
 
+    // ── Session Creation (professor) ──────────────────────────────────────
+
+    /**
+     * Liste tous les groupes (pour le formulaire de création de session).
+     */
+    public List<GroupDTO> getAllGroups() {
+        return groupRepository.findAll().stream()
+                .map(g -> {
+                    GroupDTO dto = new GroupDTO();
+                    dto.setId(g.getId());
+                    dto.setLevel(g.getLevel());
+                    dto.setSection(g.getSection());
+                    dto.setFiliere(g.getFiliere());
+                    dto.setTotalStudents(g.getTotalStudents());
+                    return dto;
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Crée une session à partir du DTO envoyé par le professeur.
+     * Le professeur est identifié par son email (issu du JWT).
+     * Le qrCodeToken est généré automatiquement (UUID).
+     */
+    public SessionResponseDTO createSessionFromDTO(SessionCreateDTO dto, String professorEmail) {
+        if (dto == null || dto.getCourseId() == null || dto.getGroupId() == null) {
+            throw new RuntimeException("courseId et groupId sont obligatoires.");
+        }
+        if (dto.getStartTime() == null || dto.getEndTime() == null) {
+            throw new RuntimeException("startTime et endTime sont obligatoires.");
+        }
+        if (!dto.getEndTime().isAfter(dto.getStartTime())) {
+            throw new RuntimeException("endTime doit être après startTime.");
+        }
+
+        Course course = courseRepository.findById(dto.getCourseId())
+                .orElseThrow(() -> new RuntimeException("Cours introuvable: " + dto.getCourseId()));
+        Group group = groupRepository.findById(dto.getGroupId())
+                .orElseThrow(() -> new RuntimeException("Groupe introuvable: " + dto.getGroupId()));
+        User professor = userRepository.findByEmail(professorEmail);
+        if (professor == null || professor.getRole() != Role.PROFESSOR) {
+            throw new RuntimeException("Professeur introuvable.");
+        }
+
+        Session session = new Session();
+        session.setStartTime(dto.getStartTime());
+        session.setEndTime(dto.getEndTime());
+        session.setLatitude(dto.getLatitude());
+        session.setLongitude(dto.getLongitude());
+        session.setRadiusInMeters(dto.getRadiusInMeters() != null ? dto.getRadiusInMeters() : 50.0);
+        session.setSalle(dto.getSalle());
+        session.setDescription(dto.getDescription());
+        session.setCourse(course);
+        session.setGroup(group);
+        session.setProfessor(professor);
+        session.setQrCodeToken(UUID.randomUUID().toString());
+
+        Session saved = sessionRepository.save(session);
+
+        SessionResponseDTO response = new SessionResponseDTO();
+        response.setId(saved.getId());
+        response.setStartTime(saved.getStartTime());
+        response.setEndTime(saved.getEndTime());
+        response.setQrCodeToken(saved.getQrCodeToken());
+        response.setLatitude(saved.getLatitude());
+        response.setLongitude(saved.getLongitude());
+        response.setRadiusInMeters(saved.getRadiusInMeters());
+        response.setCourseId(saved.getCourse().getId());
+        response.setProfessorId(saved.getProfessor().getId());
+        return response;
+    }
+
+    /**
+     * Ferme une session en mettant endTime à maintenant.
+     */
+    public SessionResponseDTO closeSession(Long id) {
+        Session session = sessionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Session introuvable: " + id));
+        session.setEndTime(LocalDateTime.now());
+        Session saved = sessionRepository.save(session);
+
+        SessionResponseDTO response = new SessionResponseDTO();
+        response.setId(saved.getId());
+        response.setStartTime(saved.getStartTime());
+        response.setEndTime(saved.getEndTime());
+        response.setQrCodeToken(saved.getQrCodeToken());
+        response.setLatitude(saved.getLatitude());
+        response.setLongitude(saved.getLongitude());
+        response.setRadiusInMeters(saved.getRadiusInMeters());
+        response.setCourseId(saved.getCourse().getId());
+        response.setProfessorId(saved.getProfessor().getId());
+        return response;
     }
 
     // ── Session Details ───────────────────────────────────────────────────

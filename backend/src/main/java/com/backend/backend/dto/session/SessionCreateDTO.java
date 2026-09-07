@@ -10,6 +10,9 @@ public class SessionCreateDTO {
     private Double latitude;
     private Double longitude;
     private Double radiusInMeters;
+    private String salle;
+    private String description;
     private Long courseId;
+    private Long groupId;
     private Long professorId;
 }
